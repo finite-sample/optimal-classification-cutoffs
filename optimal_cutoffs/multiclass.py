@@ -22,8 +22,8 @@ from .validation import validate_multiclass_classification
 
 
 def optimize_ovr_independent(
-    true_labels: ArrayLike,
-    pred_proba: ArrayLike,
+    y_true: ArrayLike,
+    y_score: ArrayLike,
     *,
     metric: str = "f1",
     method: str = "auto",
@@ -42,9 +42,9 @@ def optimize_ovr_independent(
 
     Parameters
     ----------
-    true_labels : array-like of shape (n_samples,)
+    y_true : array-like of shape (n_samples,)
         True class labels in {0, 1, ..., K-1}
-    pred_proba : array-like of shape (n_samples, n_classes)
+    y_score : array-like of shape (n_samples, n_classes)
         Predicted probabilities for each class
     metric : str, default="f1"
         Metric to optimize per class
@@ -65,18 +65,18 @@ def optimize_ovr_independent(
     Examples
     --------
     >>> y_true = [0, 1, 2, 0, 1]
-    >>> y_prob = [[0.7, 0.2, 0.1], [0.1, 0.8, 0.1], [0.1, 0.1, 0.8], ...]
-    >>> result = optimize_ovr_independent(y_true, y_prob, metric="f1")
-    >>> predictions = result.predict(y_prob)  # Can predict multiple classes
+    >>> y_score = [[0.7, 0.2, 0.1], [0.1, 0.8, 0.1], [0.1, 0.1, 0.8], ...]
+    >>> result = optimize_ovr_independent(y_true, y_score, metric="f1")
+    >>> predictions = result.predict(y_score)  # Can predict multiple classes
     """
     from .binary import optimize_metric_binary
 
     # Validate inputs
-    true_labels, pred_proba, sample_weight = validate_multiclass_classification(
-        true_labels, pred_proba, sample_weight, require_proba=True
+    y_true, y_score, sample_weight = validate_multiclass_classification(
+        y_true, y_score, sample_weight, require_proba=True
     )
 
-    n_samples, n_classes = pred_proba.shape
+    n_samples, n_classes = y_score.shape
 
     # Optimize each class vs rest independently
     optimal_thresholds = np.zeros(n_classes, dtype=np.float64)
@@ -84,13 +84,13 @@ def optimize_ovr_independent(
 
     for k in range(n_classes):
         # Create binary problem: class k vs rest
-        y_true_k = (true_labels == k).astype(int)
-        y_prob_k = pred_proba[:, k]
+        y_true_k = (y_true == k).astype(int)
+        y_score_k = y_score[:, k]
 
         # Optimize threshold for class k
         result_k = optimize_metric_binary(
             y_true_k,
-            y_prob_k,
+            y_score_k,
             metric=metric,
             method=method,
             sample_weight=sample_weight,
@@ -125,14 +125,14 @@ def optimize_ovr_independent(
 
 
 def optimize_ovr_margin(
-    true_labels: ArrayLike,
-    pred_proba: ArrayLike,
+    y_true: ArrayLike,
+    y_score: ArrayLike,
     *,
     metric: str = "f1",
     max_iter: int = 30,
     sample_weight: ArrayLike | None = None,
     comparison: str = ">",
-    tolerance: float = 1e-12,
+    tolerance: float = 1e-10,
 ) -> OptimizationResult:
     """Optimize multiclass metrics using margin rule with coordinate ascent.
 
@@ -145,9 +145,9 @@ def optimize_ovr_margin(
 
     Parameters
     ----------
-    true_labels : array-like of shape (n_samples,)
+    y_true : array-like of shape (n_samples,)
         True class labels in {0, 1, ..., K-1}
-    pred_proba : array-like of shape (n_samples, n_classes)
+    y_score : array-like of shape (n_samples, n_classes)
         Predicted probabilities for each class
     metric : str, default="f1"
         Metric to optimize (currently supports "f1" only)
@@ -167,8 +167,8 @@ def optimize_ovr_margin(
 
     Examples
     --------
-    >>> result = optimize_ovr_margin(y_true, y_prob, metric="f1")
-    >>> predictions = result.predict(y_prob)  # Exactly one class per sample
+    >>> result = optimize_ovr_margin(y_true, y_score, metric="f1")
+    >>> predictions = result.predict(y_score)  # Exactly one class per sample
 
     Notes
     -----
@@ -180,11 +180,11 @@ def optimize_ovr_margin(
     from .optimize import coordinate_ascent_kernel
 
     # Validate inputs
-    true_labels, pred_proba, sample_weight = validate_multiclass_classification(
-        true_labels, pred_proba, sample_weight, require_proba=True
+    y_true, y_score, sample_weight = validate_multiclass_classification(
+        y_true, y_score, sample_weight, require_proba=True
     )
 
-    n_samples, n_classes = pred_proba.shape
+    n_samples, n_classes = y_score.shape
 
     if metric != "f1":
         raise NotImplementedError("supports 'f1' metric only")
@@ -195,15 +195,15 @@ def optimize_ovr_margin(
     # Prepare data for coordinate ascent kernel
     from .validation import get_sample_weights
 
-    true_labels_int32 = np.asarray(true_labels, dtype=np.int32)
-    pred_proba_float64 = np.asarray(pred_proba, dtype=np.float64, order="C")
-    n_samples = len(true_labels_int32)
+    y_true_int32 = np.asarray(y_true, dtype=np.int32)
+    y_score_float64 = np.asarray(y_score, dtype=np.float64, order="C")
+    n_samples = len(y_true_int32)
     weights = get_sample_weights(sample_weight, n_samples)
 
     # Run coordinate ascent
     thresholds, best_score, history = coordinate_ascent_kernel(
-        true_labels_int32,
-        pred_proba_float64,
+        y_true_int32,
+        y_score_float64,
         weights,
         max_iter=max_iter,
         tol=tolerance,
@@ -222,8 +222,8 @@ def optimize_ovr_margin(
 
 
 def optimize_micro_multiclass(
-    true_labels: ArrayLike,
-    pred_proba: ArrayLike,
+    y_true: ArrayLike,
+    y_score: ArrayLike,
     *,
     metric: str = "f1",
     method: str = "auto",
@@ -241,9 +241,9 @@ def optimize_micro_multiclass(
 
     Parameters
     ----------
-    true_labels : array-like of shape (n_samples,)
+    y_true : array-like of shape (n_samples,)
         True class labels in {0, 1, ..., K-1}
-    pred_proba : array-like of shape (n_samples, n_classes)
+    y_score : array-like of shape (n_samples, n_classes)
         Predicted probabilities for each class
     metric : str, default="f1"
         Metric to optimize
@@ -263,26 +263,26 @@ def optimize_micro_multiclass(
 
     Examples
     --------
-    >>> result = optimize_micro_multiclass(y_true, y_prob, metric="f1")
+    >>> result = optimize_micro_multiclass(y_true, y_score, metric="f1")
     >>> result.thresholds  # Same threshold for all classes
     [0.3, 0.3, 0.3]
     """
     from .binary import optimize_metric_binary
 
     # Validate inputs
-    true_labels, pred_proba, sample_weight = validate_multiclass_classification(
-        true_labels, pred_proba, sample_weight, require_proba=True
+    y_true, y_score, sample_weight = validate_multiclass_classification(
+        y_true, y_score, sample_weight, require_proba=True
     )
 
-    n_samples, n_classes = pred_proba.shape
+    n_samples, n_classes = y_score.shape
 
     # Flatten to single binary problem for micro averaging
     # Each (sample, class) pair becomes a binary prediction
     classes = np.arange(n_classes)
     true_binary_flat = (
-        np.repeat(true_labels, n_classes) == np.tile(classes, n_samples)
+        np.repeat(y_true, n_classes) == np.tile(classes, n_samples)
     ).astype(int)
-    pred_proba_flat = pred_proba.ravel()
+    y_score_flat = y_score.ravel()
 
     # Replicate sample weights if provided
     sample_weight_flat = (
@@ -292,7 +292,7 @@ def optimize_micro_multiclass(
     # Optimize single threshold on flattened problem
     result = optimize_metric_binary(
         true_binary_flat,
-        pred_proba_flat,
+        y_score_flat,
         metric=metric,
         method=method,
         sample_weight=sample_weight_flat,
@@ -318,8 +318,8 @@ def optimize_micro_multiclass(
 
 
 def optimize_multiclass(
-    true_labels: ArrayLike,
-    pred_proba: ArrayLike,
+    y_true: ArrayLike,
+    y_score: ArrayLike,
     *,
     metric: str = "f1",
     average: str = "macro",
@@ -338,9 +338,9 @@ def optimize_multiclass(
 
     Parameters
     ----------
-    true_labels : array-like of shape (n_samples,)
+    y_true : array-like of shape (n_samples,)
         True class labels in {0, 1, ..., K-1}
-    pred_proba : array-like of shape (n_samples, n_classes)
+    y_score : array-like of shape (n_samples, n_classes)
         Predicted probabilities for each class
     metric : str, default="f1"
         Metric to optimize
@@ -366,19 +366,19 @@ def optimize_multiclass(
     Examples
     --------
     >>> # Margin rule (single-label, coordinate ascent)
-    >>> result = optimize_multiclass(y_true, y_prob, method="coord_ascent")
+    >>> result = optimize_multiclass(y_true, y_score, method="coord_ascent")
     >>>
     >>> # Independent optimization (can predict multiple classes)
-    >>> result = optimize_multiclass(y_true, y_prob, method="independent")
+    >>> result = optimize_multiclass(y_true, y_score, method="independent")
     >>>
     >>> # Micro averaging (single threshold)
-    >>> result = optimize_multiclass(y_true, y_prob, average="micro")
+    >>> result = optimize_multiclass(y_true, y_score, average="micro")
     """
     match average:
         case "micro":
             return optimize_micro_multiclass(
-                true_labels,
-                pred_proba,
+                y_true,
+                y_score,
                 metric=metric,
                 method=method,
                 sample_weight=sample_weight,
@@ -392,8 +392,8 @@ def optimize_multiclass(
                     if metric == "f1" and comparison == ">":
                         # F1 with ">" is supported by coordinate ascent - use it for better coupling
                         return optimize_ovr_margin(
-                            true_labels,
-                            pred_proba,
+                            y_true,
+                            y_score,
                             metric=metric,
                             max_iter=30,
                             sample_weight=sample_weight,
@@ -403,8 +403,8 @@ def optimize_multiclass(
                     else:
                         # Other metrics/comparisons not supported by coord_ascent - use independent
                         return optimize_ovr_independent(
-                            true_labels,
-                            pred_proba,
+                            y_true,
+                            y_score,
                             metric=metric,
                             method="auto",
                             sample_weight=sample_weight,
@@ -413,8 +413,8 @@ def optimize_multiclass(
                         )
                 case "coord_ascent":
                     return optimize_ovr_margin(
-                        true_labels,
-                        pred_proba,
+                        y_true,
+                        y_score,
                         metric=metric,
                         max_iter=30,
                         sample_weight=sample_weight,
@@ -425,8 +425,8 @@ def optimize_multiclass(
                     # Route legacy and scipy methods to independent optimization
                     # minimize, unique_scan, gradient are legacy binary methods - use independent for multiclass
                     return optimize_ovr_independent(
-                        true_labels,
-                        pred_proba,
+                        y_true,
+                        y_score,
                         metric=metric,
                         method="auto",
                         sample_weight=sample_weight,

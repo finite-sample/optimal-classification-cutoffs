@@ -58,5 +58,3 @@ def micro_coordinate_ascent(
         sample_weight=sample_weight,
         **kwargs,
     )
-
-

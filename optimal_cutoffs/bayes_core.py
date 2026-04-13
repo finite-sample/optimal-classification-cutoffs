@@ -606,5 +606,3 @@ def bayes_thresholds_from_costs(
         metric="expected_cost",
         n_classes=n_classes,
     )
-
-

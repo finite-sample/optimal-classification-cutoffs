@@ -19,8 +19,8 @@ from .core import OptimizationResult, Task
 
 
 def optimize_macro_multilabel(
-    true_labels: ArrayLike,
-    pred_proba: ArrayLike,
+    y_true: ArrayLike,
+    y_score: ArrayLike,
     *,
     metric: str = "f1",
     method: str = "auto",
@@ -38,9 +38,9 @@ def optimize_macro_multilabel(
 
     Parameters
     ----------
-    true_labels : array-like of shape (n_samples, n_labels)
+    y_true : array-like of shape (n_samples, n_labels)
         True multi-label binary matrix
-    pred_proba : array-like of shape (n_samples, n_labels)
+    y_score : array-like of shape (n_samples, n_labels)
         Predicted probabilities for each label
     metric : str, default="f1"
         Metric to optimize per label ("f1", "precision", "recall")
@@ -62,36 +62,32 @@ def optimize_macro_multilabel(
     --------
     >>> # 3 independent labels
     >>> y_true = [[1, 0, 1], [0, 1, 0], [1, 1, 1]]
-    >>> y_prob = [[0.8, 0.2, 0.9], [0.1, 0.7, 0.3], [0.9, 0.8, 0.7]]
-    >>> result = optimize_macro_multilabel(y_true, y_prob, metric="f1")
+    >>> y_score = [[0.8, 0.2, 0.9], [0.1, 0.7, 0.3], [0.9, 0.8, 0.7]]
+    >>> result = optimize_macro_multilabel(y_true, y_score, metric="f1")
     >>> len(result.thresholds)  # One per label
     3
     """
     from .binary import optimize_metric_binary
 
     # Validate inputs for multilabel
-    true_labels = np.asarray(true_labels, dtype=np.int8)
-    pred_proba = np.asarray(pred_proba, dtype=np.float64)
+    y_true = np.asarray(y_true, dtype=np.int8)
+    y_score = np.asarray(y_score, dtype=np.float64)
 
-    if true_labels.ndim != 2:
+    if y_true.ndim != 2:
+        raise ValueError(f"Multilabel y_true must be 2D, got shape {y_true.shape}")
+    if y_score.ndim != 2:
+        raise ValueError(f"Multilabel y_score must be 2D, got shape {y_score.shape}")
+    if y_true.shape != y_score.shape:
         raise ValueError(
-            f"Multilabel true_labels must be 2D, got shape {true_labels.shape}"
-        )
-    if pred_proba.ndim != 2:
-        raise ValueError(
-            f"Multilabel pred_proba must be 2D, got shape {pred_proba.shape}"
-        )
-    if true_labels.shape != pred_proba.shape:
-        raise ValueError(
-            f"Shape mismatch: labels {true_labels.shape} vs probs {pred_proba.shape}"
+            f"Shape mismatch: labels {y_true.shape} vs probs {y_score.shape}"
         )
 
     if sample_weight is not None:
         sample_weight = np.asarray(sample_weight, dtype=np.float64)
-        if len(sample_weight) != true_labels.shape[0]:
+        if len(sample_weight) != y_true.shape[0]:
             raise ValueError("Sample weights must match number of samples")
 
-    n_samples, n_labels = true_labels.shape
+    n_samples, n_labels = y_true.shape
 
     # Optimize each label independently
     optimal_thresholds = np.zeros(n_labels, dtype=np.float64)
@@ -99,17 +95,13 @@ def optimize_macro_multilabel(
 
     for j in range(n_labels):
         # Extract binary problem for label j
-        y_true_j = (
-            true_labels[:, j]
-            if true_labels.ndim == 2
-            else (true_labels == j).astype(int)
-        )
-        y_prob_j = pred_proba[:, j]
+        y_true_j = y_true[:, j] if y_true.ndim == 2 else (y_true == j).astype(int)
+        y_score_j = y_score[:, j]
 
         # Optimize threshold for this label
         result_j = optimize_metric_binary(
             y_true_j,
-            y_prob_j,
+            y_score_j,
             metric=metric,
             method=method,
             sample_weight=sample_weight,
@@ -144,14 +136,14 @@ def optimize_macro_multilabel(
 
 
 def optimize_micro_multilabel(
-    true_labels: ArrayLike,
-    pred_proba: ArrayLike,
+    y_true: ArrayLike,
+    y_score: ArrayLike,
     *,
     metric: str = "f1",
     max_iter: int = 30,
     sample_weight: ArrayLike | None = None,
     comparison: str = ">",
-    tolerance: float = 1e-12,
+    tolerance: float = 1e-10,
 ) -> OptimizationResult:
     """Optimize micro-averaged metrics for multi-label classification.
 
@@ -163,9 +155,9 @@ def optimize_micro_multilabel(
 
     Parameters
     ----------
-    true_labels : array-like of shape (n_samples, n_labels)
+    y_true : array-like of shape (n_samples, n_labels)
         True multi-label binary matrix
-    pred_proba : array-like of shape (n_samples, n_labels)
+    y_score : array-like of shape (n_samples, n_labels)
         Predicted probabilities for each label
     metric : str, default="f1"
         Metric to optimize ("f1", "precision", "recall")
@@ -185,23 +177,19 @@ def optimize_micro_multilabel(
 
     Examples
     --------
-    >>> result = optimize_micro_multilabel(y_true, y_prob, metric="f1")
+    >>> result = optimize_micro_multilabel(y_true, y_score, metric="f1")
     >>> # Thresholds are coupled - changing one affects global metric
     """
     from .metrics_core import get_metric_function
 
     # Validate inputs for multilabel
-    labels_arr: np.ndarray = np.asarray(true_labels, dtype=np.int8)
-    proba_arr: np.ndarray = np.asarray(pred_proba, dtype=np.float64)
+    labels_arr: np.ndarray = np.asarray(y_true, dtype=np.int8)
+    proba_arr: np.ndarray = np.asarray(y_score, dtype=np.float64)
 
     if labels_arr.ndim != 2:
-        raise ValueError(
-            f"Multilabel true_labels must be 2D, got shape {labels_arr.shape}"
-        )
+        raise ValueError(f"Multilabel y_true must be 2D, got shape {labels_arr.shape}")
     if proba_arr.ndim != 2:
-        raise ValueError(
-            f"Multilabel pred_proba must be 2D, got shape {proba_arr.shape}"
-        )
+        raise ValueError(f"Multilabel y_score must be 2D, got shape {proba_arr.shape}")
     if labels_arr.shape != proba_arr.shape:
         raise ValueError(
             f"Shape mismatch: labels {labels_arr.shape} vs probs {proba_arr.shape}"
@@ -291,8 +279,8 @@ def optimize_micro_multilabel(
 
 
 def optimize_multilabel(
-    true_labels: ArrayLike,
-    pred_proba: ArrayLike,
+    y_true: ArrayLike,
+    y_score: ArrayLike,
     *,
     metric: str = "f1",
     average: str = "macro",
@@ -309,9 +297,9 @@ def optimize_multilabel(
 
     Parameters
     ----------
-    true_labels : array-like of shape (n_samples, n_labels)
+    y_true : array-like of shape (n_samples, n_labels)
         True multi-label binary matrix
-    pred_proba : array-like of shape (n_samples, n_labels)
+    y_score : array-like of shape (n_samples, n_labels)
         Predicted probabilities for each label
     metric : str, default="f1"
         Metric to optimize
@@ -334,16 +322,16 @@ def optimize_multilabel(
     Examples
     --------
     >>> # Independent per-label optimization
-    >>> result = optimize_multilabel(y_true, y_prob, average="macro")
+    >>> result = optimize_multilabel(y_true, y_score, average="macro")
     >>>
     >>> # Coupled optimization for global metric
-    >>> result = optimize_multilabel(y_true, y_prob, average="micro")
+    >>> result = optimize_multilabel(y_true, y_score, average="micro")
     """
     match average:
         case "macro":
             return optimize_macro_multilabel(
-                true_labels,
-                pred_proba,
+                y_true,
+                y_score,
                 metric=metric,
                 method=method,
                 sample_weight=sample_weight,
@@ -352,8 +340,8 @@ def optimize_multilabel(
             )
         case "micro":
             return optimize_micro_multilabel(
-                true_labels,
-                pred_proba,
+                y_true,
+                y_score,
                 metric=metric,
                 max_iter=30,
                 sample_weight=sample_weight,

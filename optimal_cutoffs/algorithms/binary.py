@@ -73,5 +73,3 @@ def gradient_ascent(
         sample_weight=sample_weight,
         **kwargs,
     )
-
-

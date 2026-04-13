@@ -126,7 +126,7 @@ def _predict_from_threshold(probs: Array, threshold: float, inclusive: bool) -> 
 
 def optimal_threshold_sortscan(
     y_true: Array,
-    pred_prob: Array,
+    y_score: Array,
     metric: str | Callable[[Array, Array, Array, Array], Array],
     *,
     sample_weight: Array | None = None,
@@ -140,7 +140,7 @@ def optimal_threshold_sortscan(
     ----------
     y_true : array-like of shape (n_samples,)
         Binary labels in {0, 1}.
-    pred_prob : array-like of shape (n_samples,)
+    y_score : array-like of shape (n_samples,)
         Predicted probabilities in [0, 1] or arbitrary scores if require_proba=False.
     metric : str or callable
         Metric name (e.g., "f1", "precision") or vectorized function.
@@ -184,7 +184,7 @@ def optimal_threshold_sortscan(
 
     # 1) Validate inputs
     y, p, _ = validate_binary_classification(
-        y_true, pred_prob, require_proba=require_proba
+        y_true, y_score, require_proba=require_proba
     )
     n = y.shape[0]
     weights = get_sample_weights(sample_weight, n)

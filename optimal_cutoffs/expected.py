@@ -149,7 +149,7 @@ def dinkelbach_optimize(
 
 
 def dinkelbach_expected_fbeta_binary(
-    y_prob: np.ndarray[Any, Any],
+    y_score: np.ndarray[Any, Any],
     beta: float = 1.0,
     sample_weight: np.ndarray[Any, Any] | None = None,
     comparison: str = ">",
@@ -158,7 +158,7 @@ def dinkelbach_expected_fbeta_binary(
 
     Parameters
     ----------
-    y_prob : array of shape (n,)
+    y_score : array of shape (n,)
         Calibrated probabilities for positive class
     beta : float
         F-beta parameter
@@ -175,7 +175,7 @@ def dinkelbach_expected_fbeta_binary(
     # Step 1: Setup and validation
     from .validation import get_sample_weights
 
-    p = np.asarray(y_prob, dtype=np.float64)
+    p = np.asarray(y_score, dtype=np.float64)
     n = len(p)
     w = get_sample_weights(sample_weight, n)
 
@@ -393,18 +393,18 @@ def expected_jaccard(
 
 
 def dinkelbach_expected_fbeta_multilabel(
-    y_prob: np.ndarray[Any, Any],
+    y_score: np.ndarray[Any, Any],
     beta: float = 1.0,
     sample_weight: np.ndarray[Any, Any] | None = None,
     average: Literal["macro", "micro", "weighted"] = "macro",
-    true_labels: np.ndarray[Any, Any] | None = None,
+    y_true: np.ndarray[Any, Any] | None = None,
     comparison: str = ">",
 ) -> OptimizationResult:
     """Expected F-beta optimization for multilabel/multiclass.
 
     Parameters
     ----------
-    y_prob : array of shape (n_samples, n_classes)
+    y_score : array of shape (n_samples, n_classes)
         Class probabilities
     beta : float
         F-beta parameter
@@ -415,7 +415,7 @@ def dinkelbach_expected_fbeta_multilabel(
         - "macro": Per-class thresholds, unweighted mean
         - "micro": Single global threshold
         - "weighted": Per-class thresholds, weighted by true class frequencies
-    true_labels : array of shape (n_samples,), optional
+    y_true : array of shape (n_samples,), optional
         True class labels. Required when average="weighted" to compute class
         frequencies.
         Should contain integer class indices from 0 to n_classes-1.
@@ -427,7 +427,7 @@ def dinkelbach_expected_fbeta_multilabel(
     dict
         Results with 'thresholds' and 'score' keys
     """
-    P = np.asarray(y_prob, dtype=np.float64)
+    P = np.asarray(y_score, dtype=np.float64)
 
     if P.ndim != 2:
         raise ValueError(f"Expected 2D probabilities, got shape {P.shape}")
@@ -472,7 +472,7 @@ def dinkelbach_expected_fbeta_multilabel(
 
         # Note: Previous avg_score calculation removed as it was unused
         # Validate weighted averaging requirements
-        if average == "weighted" and true_labels is None:
+        if average == "weighted" and y_true is None:
             raise ValueError(
                 "Weighted averaging requires true_labels to compute class frequencies"
             )
@@ -637,5 +637,3 @@ def expected_optimize_multiclass(
             metric=f"expected_{metric}",
             n_classes=n_classes,
         )
-
-

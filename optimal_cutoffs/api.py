@@ -7,6 +7,8 @@ Two canonical functions:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
@@ -30,6 +32,11 @@ def optimize_thresholds(
     method: str = "auto",
     mode: str = "empirical",
     sample_weight: ArrayLike | None = None,
+    utility: Mapping[str, float | int] | None = None,
+    fp_costs: ArrayLike | None = None,
+    fn_costs: ArrayLike | None = None,
+    comparison: str = ">",
+    tolerance: float = 1e-10,
     **kwargs,
 ) -> OptimizationResult:
     """Find optimal thresholds for classification problems.
@@ -58,9 +65,21 @@ def optimize_thresholds(
         "empirical" (standard) or "expected" (requires calibrated probabilities)
     sample_weight
         Sample weights
+    utility
+        Utility specification for binary Bayes optimization with keys "tp", "tn", "fp", "fn".
+        Required when mode="bayes" for binary classification.
+    fp_costs
+        Per-class false positive costs for multiclass Bayes optimization.
+        Required when mode="bayes" for multiclass classification.
+    fn_costs
+        Per-class false negative costs for multiclass Bayes optimization.
+        Required when mode="bayes" for multiclass classification.
+    comparison
+        Comparison operator for threshold. Must be ">" or ">=".
+    tolerance
+        Numerical tolerance for optimization.
     **kwargs
         Additional keyword arguments passed to optimization algorithms.
-        Common options include 'comparison' (">", ">="), 'tolerance', 'utility'.
 
     Returns
     -------
@@ -77,7 +96,7 @@ def optimize_thresholds(
         If mode='expected' with unsupported metric.
         If method is deprecated ('dinkelbach', 'smart_brute').
         If unknown metric name is provided.
-        If true_labels required for empirical mode but not provided.
+        If y_true required for empirical mode but not provided.
 
     Examples
     --------
@@ -101,8 +120,8 @@ def optimize_thresholds(
     # Early validation for mode-specific requirements
     # Bayes mode requires either 'utility' (binary) or 'fp_costs'/'fn_costs' (multiclass)
     if mode == "bayes":
-        has_utility = "utility" in kwargs
-        has_costs = "fp_costs" in kwargs and "fn_costs" in kwargs
+        has_utility = utility is not None
+        has_costs = fp_costs is not None and fn_costs is not None
         if not has_utility and not has_costs:
             raise ValueError(
                 "mode='bayes' requires 'utility' (binary) or 'fp_costs'/'fn_costs' (multiclass)"
@@ -115,9 +134,9 @@ def optimize_thresholds(
         )
 
     # Validate comparison operator
-    if "comparison" in kwargs and kwargs["comparison"] not in [">", ">="]:
+    if comparison not in [">", ">="]:
         raise ValueError(
-            f"Invalid comparison operator: {kwargs['comparison']}. Must be '>' or '>='"
+            f"Invalid comparison operator: {comparison}. Must be '>' or '>='"
         )
 
     # Validate expected mode requirements
@@ -155,7 +174,7 @@ def optimize_thresholds(
 
     # Check that empirical mode has true labels
     if mode == "empirical" and y_true is None:
-        raise ValueError("true_labels required for empirical optimization")
+        raise ValueError("y_true required for empirical optimization")
 
     # For Bayes and Expected modes, y_true is not needed
     # Handle None inputs gracefully for these cases
@@ -215,7 +234,7 @@ def optimize_thresholds(
         method == "auto"
         and inferred_method == "coord_ascent"
         and inferred_task == Task.MULTICLASS
-        and kwargs.get("comparison", ">") == ">="
+        and comparison == ">="
     ):
         # Auto-selected coord_ascent but comparison=">=" provided, fall back to independent
         final_method = "independent"
@@ -233,6 +252,11 @@ def optimize_thresholds(
         method=final_method,
         mode=mode,
         sample_weight=sample_weight,
+        utility=utility,
+        fp_costs=fp_costs,
+        fn_costs=fn_costs,
+        comparison=comparison,
+        tolerance=tolerance,
         **kwargs,
     )
 
@@ -248,7 +272,7 @@ def optimize_thresholds(
 
 
 def optimize_decisions(
-    y_prob: ArrayLike,
+    y_score: ArrayLike,
     cost_matrix: ArrayLike,
     **kwargs,
 ) -> OptimizationResult:
@@ -259,7 +283,7 @@ def optimize_decisions(
 
     Parameters
     ----------
-    y_prob
+    y_score
         Predicted probabilities (n_samples, n_classes)
     cost_matrix
         Cost matrix (n_classes, n_actions) or (n_classes, n_classes)
@@ -282,7 +306,7 @@ def optimize_decisions(
     from .bayes_core import bayes_optimal_decisions
 
     return bayes_optimal_decisions(
-        np.asarray(y_prob), cost_matrix=np.asarray(cost_matrix), **kwargs
+        np.asarray(y_score), cost_matrix=np.asarray(cost_matrix), **kwargs
     )
 
 
@@ -296,6 +320,11 @@ def _route_to_implementation(
     method: str,
     mode: str,
     sample_weight: NDArray | None = None,
+    utility: Mapping[str, float | int] | None = None,
+    fp_costs: ArrayLike | None = None,
+    fn_costs: ArrayLike | None = None,
+    comparison: str = ">",
+    tolerance: float = 1e-10,
     **kwargs,
 ) -> OptimizationResult:
     """Route to appropriate implementation based on task and method."""
@@ -309,6 +338,9 @@ def _route_to_implementation(
                 method=method,
                 mode=mode,
                 sample_weight=sample_weight,
+                utility=utility,
+                comparison=comparison,
+                tolerance=tolerance,
                 **kwargs,
             )
 
@@ -321,6 +353,10 @@ def _route_to_implementation(
                 method=method,
                 mode=mode,
                 sample_weight=sample_weight,
+                fp_costs=fp_costs,
+                fn_costs=fn_costs,
+                comparison=comparison,
+                tolerance=tolerance,
                 **kwargs,
             )
 
@@ -333,6 +369,8 @@ def _route_to_implementation(
                 method=method,
                 mode=mode,
                 sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
                 **kwargs,
             )
 
@@ -348,6 +386,9 @@ def _optimize_binary(
     method: str,
     mode: str,
     sample_weight: NDArray | None = None,
+    utility: Mapping[str, float | int] | None = None,
+    comparison: str = ">",
+    tolerance: float = 1e-10,
     **kwargs,
 ) -> OptimizationResult:
     """Route binary optimization to appropriate algorithm."""
@@ -355,18 +396,20 @@ def _optimize_binary(
     if mode == "expected":
         from .expected import dinkelbach_expected_fbeta_binary
 
-        return dinkelbach_expected_fbeta_binary(y_score, **kwargs)
+        return dinkelbach_expected_fbeta_binary(
+            y_score, comparison=comparison, **kwargs
+        )
 
     if mode == "bayes":
         from .bayes import threshold as bayes_threshold
         from .core import OptimizationResult, Task
 
         # Extract costs from utility dictionary
-        utility = kwargs.get("utility", {})
-        cost_fp = -utility.get(
+        util = utility or {}
+        cost_fp = -util.get(
             "fp", 0
         )  # Convert from utility (negative cost) to positive cost
-        cost_fn = -utility.get(
+        cost_fn = -util.get(
             "fn", 0
         )  # Convert from utility (negative cost) to positive cost
 
@@ -386,11 +429,11 @@ def _optimize_binary(
 
     # Empirical mode
     # Check if utility-based optimization is requested
-    if "utility" in kwargs:
+    if utility is not None:
         from .binary import optimize_utility_binary
 
         return optimize_utility_binary(
-            y_true, y_score, utility=kwargs["utility"], sample_weight=sample_weight
+            y_true, y_score, utility=dict(utility), sample_weight=sample_weight
         )
 
     match method:
@@ -398,7 +441,7 @@ def _optimize_binary(
             from .piecewise import optimal_threshold_sortscan
 
             # Convert comparison parameter to inclusive for sort_scan method
-            inclusive = kwargs.pop("comparison", ">") == ">="
+            inclusive = comparison == ">="
 
             return optimal_threshold_sortscan(
                 y_true,
@@ -406,6 +449,7 @@ def _optimize_binary(
                 metric=metric,
                 sample_weight=sample_weight,
                 inclusive=inclusive,
+                tolerance=tolerance,
                 **kwargs,
             )
 
@@ -418,6 +462,8 @@ def _optimize_binary(
                 metric=metric,
                 method="minimize",
                 sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
                 **kwargs,
             )
 
@@ -430,6 +476,8 @@ def _optimize_binary(
                 metric=metric,
                 method="gradient",
                 sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
                 **kwargs,
             )
 
@@ -448,15 +496,16 @@ def _optimize_multiclass(
     method: str,
     mode: str,
     sample_weight: NDArray | None = None,
+    fp_costs: ArrayLike | None = None,
+    fn_costs: ArrayLike | None = None,
+    comparison: str = ">",
+    tolerance: float = 1e-10,
     **kwargs,
 ) -> OptimizationResult:
     """Route multiclass optimization to appropriate algorithm."""
 
     if mode == "bayes":
         from .bayes_core import bayes_thresholds_from_costs
-
-        fp_costs = kwargs.get("fp_costs")
-        fn_costs = kwargs.get("fn_costs")
 
         if fp_costs is None or fn_costs is None:
             raise ValueError("Bayes mode requires 'fp_costs' and 'fn_costs' arrays")
@@ -483,7 +532,7 @@ def _optimize_multiclass(
     match method:
         case "coord_ascent":
             # coord_ascent only supports ">" comparison
-            if kwargs.get("comparison", ">") == ">=":
+            if comparison == ">=":
                 raise NotImplementedError("'>' is required for coord_ascent method")
             else:
                 from .multiclass import optimize_ovr_margin
@@ -493,6 +542,8 @@ def _optimize_multiclass(
                     y_score,
                     metric=metric,
                     sample_weight=sample_weight,
+                    comparison=comparison,
+                    tolerance=tolerance,
                     **kwargs,
                 )
 
@@ -500,14 +551,26 @@ def _optimize_multiclass(
             from .multiclass import optimize_ovr_independent
 
             return optimize_ovr_independent(
-                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+                y_true,
+                y_score,
+                metric=metric,
+                sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
+                **kwargs,
             )
 
         case "micro":
             from .multiclass import optimize_micro_multiclass
 
             return optimize_micro_multiclass(
-                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+                y_true,
+                y_score,
+                metric=metric,
+                sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
+                **kwargs,
             )
 
         case "sort_scan":
@@ -515,7 +578,13 @@ def _optimize_multiclass(
             from .multiclass import optimize_ovr_independent
 
             return optimize_ovr_independent(
-                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+                y_true,
+                y_score,
+                metric=metric,
+                sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
+                **kwargs,
             )
 
         case "minimize":
@@ -523,7 +592,13 @@ def _optimize_multiclass(
             from .multiclass import optimize_ovr_independent
 
             return optimize_ovr_independent(
-                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+                y_true,
+                y_score,
+                metric=metric,
+                sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
+                **kwargs,
             )
 
         case _:
@@ -541,6 +616,8 @@ def _optimize_multilabel(
     method: str,
     mode: str,
     sample_weight: NDArray | None = None,
+    comparison: str = ">",
+    tolerance: float = 1e-10,
     **kwargs,
 ) -> OptimizationResult:
     """Route multilabel optimization to appropriate algorithm."""
@@ -553,6 +630,7 @@ def _optimize_multilabel(
         return dinkelbach_expected_fbeta_multilabel(
             y_score,
             average=avg_literal,  # type: ignore[arg-type]
+            comparison=comparison,
             **kwargs,
         )
 
@@ -562,14 +640,26 @@ def _optimize_multilabel(
             from .multilabel import optimize_macro_multilabel
 
             return optimize_macro_multilabel(
-                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+                y_true,
+                y_score,
+                metric=metric,
+                sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
+                **kwargs,
             )
 
         case ("coordinate_ascent", Average.MICRO):
             from .multilabel import optimize_micro_multilabel
 
             return optimize_micro_multilabel(
-                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+                y_true,
+                y_score,
+                metric=metric,
+                sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
+                **kwargs,
             )
 
         case _:
@@ -582,5 +672,7 @@ def _optimize_multilabel(
                 metric=metric,
                 average=average.value,
                 sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
                 **kwargs,
             )

@@ -143,9 +143,7 @@ def sort_scan_kernel(
 
 
 @jit(nopython=True, fastmath=True, cache=True)
-def compute_macro_f1(
-    tp: np.ndarray, fp: np.ndarray, support: np.ndarray
-) -> float:
+def compute_macro_f1(tp: np.ndarray, fp: np.ndarray, support: np.ndarray) -> float:
     """Compute macro F1 from per-class TP/FP and per-class support (FN = support - TP)."""
     f1_sum = 0.0
     k = tp.shape[0]
@@ -718,5 +716,3 @@ def find_optimal_threshold(
         )
     else:
         return optimize_sort_scan(labels, scores, metric, weights, operator)
-
-

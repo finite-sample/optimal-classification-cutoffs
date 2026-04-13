@@ -21,8 +21,8 @@ from .validation import validate_binary_classification
 
 
 def optimize_f1_binary(
-    true_labels: ArrayLike,
-    pred_proba: ArrayLike,
+    y_true: ArrayLike,
+    y_score: ArrayLike,
     *,
     beta: float = 1.0,
     sample_weight: ArrayLike | None = None,
@@ -35,9 +35,9 @@ def optimize_f1_binary(
 
     Parameters
     ----------
-    true_labels
+    y_true
         True binary labels in {0, 1}. Shape: (n_samples,)
-    pred_proba
+    y_score
         Predicted probabilities for positive class in [0, 1]. Shape: (n_samples,)
     beta
         F-beta parameter. beta=1 gives F1 score
@@ -54,8 +54,8 @@ def optimize_f1_binary(
     Examples
     --------
     >>> y_true = [0, 1, 1, 0, 1]
-    >>> y_prob = [0.2, 0.8, 0.7, 0.3, 0.9]
-    >>> result = optimize_f1_binary(y_true, y_prob)
+    >>> y_score = [0.2, 0.8, 0.7, 0.3, 0.9]
+    >>> result = optimize_f1_binary(y_true, y_score)
     >>> result.threshold
     0.5
     >>> result.score  # F1 score at optimal threshold
@@ -65,8 +65,8 @@ def optimize_f1_binary(
     from .piecewise import optimal_threshold_sortscan
 
     # Validate inputs
-    true_labels, pred_proba, sample_weight = validate_binary_classification(
-        true_labels, pred_proba, sample_weight, require_proba=True
+    y_true, y_score, sample_weight = validate_binary_classification(
+        y_true, y_score, sample_weight, require_proba=True
     )
 
     # Create F-beta metric function name
@@ -92,8 +92,8 @@ def optimize_f1_binary(
 
     # Use sort-and-scan optimization
     result = optimal_threshold_sortscan(
-        true_labels,
-        pred_proba,
+        y_true,
+        y_score,
         metric=metric_name,
         sample_weight=sample_weight,
         inclusive=(comparison == ">="),
@@ -114,8 +114,8 @@ def optimize_f1_binary(
 
 
 def optimize_utility_binary(
-    true_labels: ArrayLike | None,
-    pred_proba: ArrayLike,
+    y_true: ArrayLike | None,
+    y_score: ArrayLike,
     *,
     utility: dict[str, float],
     sample_weight: ArrayLike | None = None,
@@ -129,9 +129,9 @@ def optimize_utility_binary(
 
     Parameters
     ----------
-    true_labels
+    y_true
         True binary labels. Can be None for pure Bayes optimization. Shape: (n_samples,)
-    pred_proba
+    y_score
         Predicted probabilities for positive class in [0, 1]. Shape: (n_samples,)
     utility
         Utility specification with keys "tp", "tn", "fp", "fn"
@@ -152,20 +152,20 @@ def optimize_utility_binary(
     --------
     >>> # FN costs 5x more than FP
     >>> utility = {"tp": 10, "tn": 1, "fp": -1, "fn": -5}
-    >>> result = optimize_utility_binary(None, y_prob, utility=utility)
+    >>> result = optimize_utility_binary(None, y_score, utility=utility)
     >>> result.threshold  # Closed-form optimal
     0.167
     """
     from .bayes import BayesOptimal, UtilitySpec
 
     # Validate probabilities
-    pred_proba = np.asarray(pred_proba, dtype=np.float64)
-    if pred_proba.ndim == 2 and pred_proba.shape[1] == 2:
-        pred_proba = pred_proba[:, 1]  # Extract positive class
-    elif pred_proba.ndim == 2 and pred_proba.shape[1] == 1:
-        pred_proba = pred_proba.ravel()
+    y_score = np.asarray(y_score, dtype=np.float64)
+    if y_score.ndim == 2 and y_score.shape[1] == 2:
+        y_score = y_score[:, 1]  # Extract positive class
+    elif y_score.ndim == 2 and y_score.shape[1] == 1:
+        y_score = y_score.ravel()
 
-    if not np.all((pred_proba >= 0) & (pred_proba <= 1)):
+    if not np.all((y_score >= 0) & (y_score <= 1)):
         raise ValueError("Probabilities must be in [0, 1] for utility optimization")
 
     # Create utility specification
@@ -176,7 +176,7 @@ def optimize_utility_binary(
     threshold = optimizer.compute_threshold()
 
     # Compute expected utility on this data
-    expected_utility = optimizer.expected_utility(pred_proba)
+    expected_utility = optimizer.expected_utility(y_score)
 
     from .validation import make_binary_predictor
 
@@ -191,8 +191,8 @@ def optimize_utility_binary(
 
 
 def optimize_metric_binary(
-    true_labels: ArrayLike,
-    pred_proba: ArrayLike,
+    y_true: ArrayLike,
+    y_score: ArrayLike,
     *,
     metric: str = "f1",
     method: str = "auto",
@@ -207,9 +207,9 @@ def optimize_metric_binary(
 
     Parameters
     ----------
-    true_labels
+    y_true
         True binary labels in {0, 1}. Shape: (n_samples,)
-    pred_proba
+    y_score
         Predicted probabilities for positive class in [0, 1]. Shape: (n_samples,)
     metric
         Metric to optimize ("f1", "precision", "recall", "accuracy", etc.)
@@ -238,16 +238,16 @@ def optimize_metric_binary(
 
     Examples
     --------
-    >>> result = optimize_metric_binary(y_true, y_prob, metric="precision")
-    >>> result = optimize_metric_binary(y_true, y_prob, metric="f1", method="sort_scan")
+    >>> result = optimize_metric_binary(y_true, y_score, metric="precision")
+    >>> result = optimize_metric_binary(y_true, y_score, metric="f1", method="sort_scan")
     """
     from .metrics_core import is_piecewise_metric
     from .optimize import optimize_gradient, optimize_scipy
     from .piecewise import optimal_threshold_sortscan
 
     # Validate inputs
-    true_labels, pred_proba, sample_weight = validate_binary_classification(
-        true_labels, pred_proba, sample_weight, require_proba=True
+    y_true, y_score, sample_weight = validate_binary_classification(
+        y_true, y_score, sample_weight, require_proba=True
     )
 
     # Method selection
@@ -258,8 +258,8 @@ def optimize_metric_binary(
     match method:
         case "sort_scan":
             result = optimal_threshold_sortscan(
-                true_labels,
-                pred_proba,
+                y_true,
+                y_score,
                 metric=metric,
                 sample_weight=sample_weight,
                 inclusive=(comparison == ">="),
@@ -268,8 +268,8 @@ def optimize_metric_binary(
             )
         case "minimize":
             result = optimize_scipy(
-                true_labels,
-                pred_proba,
+                y_true,
+                y_score,
                 metric,
                 sample_weight,
                 comparison,
@@ -277,8 +277,8 @@ def optimize_metric_binary(
             )
         case "gradient":
             result = optimize_gradient(
-                true_labels,
-                pred_proba,
+                y_true,
+                y_score,
                 metric,
                 sample_weight,
                 comparison,

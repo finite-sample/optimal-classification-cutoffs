@@ -285,7 +285,7 @@ class TestEdgeCases:
         p = np.array([0.1, 0.5, 0.9])
 
         with pytest.raises(
-            ValueError, match="true_labels required for empirical optimization"
+            ValueError, match="y_true required for empirical optimization"
         ):
             optimize_thresholds(None, p, utility={"fp": -1, "fn": -5}, mode="empirical")
 
