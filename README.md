@@ -90,8 +90,8 @@ from optimal_cutoffs import optimize_decisions
 # False negatives cost 10x more than false positives
 cost_matrix = [[0, 1], [10, 0]]
 
-result = optimize_decisions(y_probs, cost_matrix)
-y_pred = result.predict(y_probs_new)  # Bayes-optimal decisions
+result = optimize_decisions(y_score, cost_matrix)
+y_pred = result.predict(y_score_new)  # Bayes-optimal decisions
 ```
 
 ## API Overview
@@ -107,7 +107,7 @@ from optimal_cutoffs import optimize_thresholds, optimize_decisions
 result = optimize_thresholds(y_true, y_scores, metric="f1")
 
 # For cost matrix optimization (no thresholds)
-result = optimize_decisions(y_probs, cost_matrix)
+result = optimize_decisions(y_score, cost_matrix)
 ```
 
 ### Progressive Disclosure: Power When You Need It
