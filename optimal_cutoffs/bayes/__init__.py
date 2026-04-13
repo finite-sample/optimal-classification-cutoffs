@@ -11,8 +11,13 @@ from ..bayes_core import BayesOptimal, UtilitySpec
 from ..core import OptimizationResult
 
 
-def threshold(cost_fp: float, cost_fn: float, *, prior: float | None = None) -> float:
-    """Compute binary Bayes-optimal threshold from costs.
+def threshold(
+    cost_fp: float,
+    cost_fn: float,
+    benefit_tp: float = 0.0,
+    benefit_tn: float = 0.0,
+) -> float:
+    """Compute binary Bayes-optimal threshold from costs and benefits.
 
     Parameters
     ----------
@@ -20,13 +25,15 @@ def threshold(cost_fp: float, cost_fn: float, *, prior: float | None = None) -> 
         Cost of false positive (predicting positive when actually negative)
     cost_fn : float
         Cost of false negative (predicting negative when actually positive)
-    prior : float, optional
-        Prior probability of positive class. If None, assumes 0.5.
+    benefit_tp : float
+        Benefit of true positive (predicting positive correctly)
+    benefit_tn : float
+        Benefit of true negative (predicting negative correctly)
 
     Returns
     -------
     float
-        Optimal threshold
+        Optimal threshold τ* = (benefit_tn + cost_fp) / [(benefit_tp + cost_fn) + (benefit_tn + cost_fp)]
 
     Examples
     --------
@@ -36,7 +43,12 @@ def threshold(cost_fp: float, cost_fn: float, *, prior: float | None = None) -> 
     """
     from ..bayes_core import bayes_optimal_threshold
 
-    return bayes_optimal_threshold(cost_fp, cost_fn).thresholds[0]
+    return bayes_optimal_threshold(
+        fp_cost=cost_fp,
+        fn_cost=cost_fn,
+        tp_benefit=benefit_tp,
+        tn_benefit=benefit_tn,
+    ).thresholds[0]
 
 
 def thresholds_from_costs(

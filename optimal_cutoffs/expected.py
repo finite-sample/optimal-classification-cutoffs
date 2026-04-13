@@ -87,15 +87,17 @@ def dinkelbach_optimize(
     # Sort probabilities once
     p = np.sort(probabilities)
 
-    # Initial lambda
+    # Initial lambda and defaults for edge case where max_iter == 0
     lam = 0.5
     converged = False
+    best_t = 0.5  # Default threshold
+    den = 1.0  # Default denominator to avoid unbound variable
+
+    if max_iter == 0:
+        # Handle edge case: return median threshold with initial lambda
+        return float(np.median(p)), lam
 
     for iteration in range(max_iter):
-        # Find threshold that maximizes: numerator - lambda * denominator
-        def objective(t, lambda_val=lam):
-            return numerator_fn(t) - lambda_val * denominator_fn(t)
-
         # Vectorized grid search over unique probabilities
         candidates = np.unique(p)
 
@@ -107,7 +109,6 @@ def dinkelbach_optimize(
         # Find the best candidate
         best_idx = np.argmax(obj_values)
         best_t = candidates[best_idx]
-        best_val = obj_values[best_idx]
 
         # Update lambda
         num = numerator_fn(best_t)
@@ -172,13 +173,11 @@ def dinkelbach_expected_fbeta_binary(
         Optimization result with threshold, score, and predict function
     """
     # Step 1: Setup and validation
+    from .validation import get_sample_weights
+
     p = np.asarray(y_prob, dtype=np.float64)
     n = len(p)
-
-    if sample_weight is None:
-        w = np.ones(n, dtype=np.float64)
-    else:
-        w = np.asarray(sample_weight, dtype=np.float64)
+    w = get_sample_weights(sample_weight, n)
 
     # Validate inputs
     if not np.all((0 <= p) & (p <= 1)):
@@ -321,22 +320,12 @@ def dinkelbach_expected_fbeta_binary(
     best_threshold_float = float(best_threshold)
     best_score_float = float(best_score)
 
-    # Create prediction function (closure captures threshold and comparison)
-    def predict_binary(probs):
-        p = np.asarray(probs)
-        if p.ndim == 2 and p.shape[1] == 2:
-            p = p[:, 1]  # Use positive class probabilities
-        elif p.ndim == 2 and p.shape[1] == 1:
-            p = p.ravel()
-        if comparison == ">=":
-            return (p >= best_threshold_float).astype(int)
-        else:
-            return (p > best_threshold_float).astype(int)
+    from .validation import make_binary_predictor
 
     return OptimizationResult(
         thresholds=np.array([best_threshold_float]),
         scores=np.array([best_score_float]),
-        predict=predict_binary,
+        predict=make_binary_predictor(best_threshold_float, comparison),
         task=Task.BINARY,
         metric=f"expected_f{beta}",
         n_classes=2,
@@ -459,31 +448,13 @@ def dinkelbach_expected_fbeta_multilabel(
         threshold = result.threshold
         score = result.score
 
-        # Create prediction function for micro averaging (single threshold for all classes)
-        def predict_multiclass_micro(probs):
-            p = np.asarray(probs)
-            if p.ndim != 2:
-                raise ValueError("Multiclass requires 2D probabilities")
-            # Apply same threshold to all classes and predict highest valid probability
-            thresholds = np.full(n_classes, threshold)
-            if comparison == ">=":
-                valid = p >= thresholds[None, :]
-            else:
-                valid = p > thresholds[None, :]
-            masked = np.where(valid, p, -np.inf)
-            predictions = np.argmax(masked, axis=1)
+        from .validation import make_multiclass_predictor
 
-            # For samples where no class is above threshold, predict highest probability
-            no_valid = np.all(~valid, axis=1)
-            if np.any(no_valid):
-                predictions[no_valid] = np.argmax(p[no_valid], axis=1)
-
-            return predictions.astype(int)
-
+        thresholds_arr = np.full(n_classes, threshold)
         return OptimizationResult(
-            thresholds=np.full(n_classes, threshold),
+            thresholds=thresholds_arr,
             scores=np.full(n_classes, score),
-            predict=predict_multiclass_micro,
+            predict=make_multiclass_predictor(thresholds_arr, comparison),
             task=Task.MULTICLASS,
             metric=f"expected_f{beta}",
             n_classes=n_classes,
@@ -506,30 +477,12 @@ def dinkelbach_expected_fbeta_multilabel(
                 "Weighted averaging requires true_labels to compute class frequencies"
             )
 
-        # Create prediction function for macro/weighted averaging (per-class thresholds)
-        def predict_multiclass_macro(probs):
-            p = np.asarray(probs)
-            if p.ndim != 2:
-                raise ValueError("Multiclass requires 2D probabilities")
-            # Apply per-class thresholds and predict highest valid probability
-            if comparison == ">=":
-                valid = p >= thresholds[None, :]
-            else:
-                valid = p > thresholds[None, :]
-            masked = np.where(valid, p, -np.inf)
-            predictions = np.argmax(masked, axis=1)
-
-            # For samples where no class is above threshold, predict highest probability
-            no_valid = np.all(~valid, axis=1)
-            if np.any(no_valid):
-                predictions[no_valid] = np.argmax(p[no_valid], axis=1)
-
-            return predictions.astype(int)
+        from .validation import make_multiclass_predictor
 
         return OptimizationResult(
             thresholds=thresholds,
             scores=scores,
-            predict=predict_multiclass_macro,
+            predict=make_multiclass_predictor(thresholds, comparison),
             task=Task.MULTICLASS,
             metric=f"expected_f{beta}",
             n_classes=n_classes,
@@ -686,47 +639,3 @@ def expected_optimize_multiclass(
         )
 
 
-# ============================================================================
-# Simple API
-# ============================================================================
-
-
-def optimize_expected_threshold(
-    probabilities: np.ndarray[Any, Any], metric: str = "f1", **kwargs
-) -> float | np.ndarray[Any, Any]:
-    """Simple API for expected threshold optimization.
-
-    Parameters
-    ----------
-    probabilities : array
-        Probabilities (1D for binary, 2D for multiclass)
-    metric : str
-        Metric to optimize
-    **kwargs
-        Additional parameters
-
-    Returns
-    -------
-    float or array
-        Optimal threshold(s)
-    """
-    p = np.asarray(probabilities)
-
-    if p.ndim == 1:
-        # Binary case
-        if metric.lower() in {"f1", "fbeta"}:
-            result = dinkelbach_expected_fbeta_binary(p, beta=kwargs.get("beta", 1.0))
-            return result.threshold
-        elif metric.lower() == "precision":
-            threshold, _ = expected_precision(p)
-        elif metric.lower() in {"jaccard", "iou"}:
-            threshold, _ = expected_jaccard(p)
-        else:
-            raise ValueError(f"Unknown metric: {metric}")
-
-        return threshold
-
-    else:
-        # Multiclass case
-        result = expected_optimize_multiclass(p, metric, **kwargs)
-        return result.thresholds

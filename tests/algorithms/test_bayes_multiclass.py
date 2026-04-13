@@ -223,7 +223,7 @@ class TestIntegrationWithRouter:
         # No utility specified
         with pytest.raises(
             ValueError,
-            match="mode='bayes' requires utility parameter",
+            match="mode='bayes' requires 'utility' .* or 'fp_costs'/'fn_costs'",
         ):
             optimize_thresholds(None, y_prob, mode="bayes")
 

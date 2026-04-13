@@ -99,8 +99,14 @@ def optimize_thresholds(
     ... )
     """
     # Early validation for mode-specific requirements
-    if mode == "bayes" and "utility" not in kwargs:
-        raise ValueError("mode='bayes' requires utility parameter")
+    # Bayes mode requires either 'utility' (binary) or 'fp_costs'/'fn_costs' (multiclass)
+    if mode == "bayes":
+        has_utility = "utility" in kwargs
+        has_costs = "fp_costs" in kwargs and "fn_costs" in kwargs
+        if not has_utility and not has_costs:
+            raise ValueError(
+                "mode='bayes' requires 'utility' (binary) or 'fp_costs'/'fn_costs' (multiclass)"
+            )
 
     # Check for deprecated parameters
     if "bayes" in kwargs:
@@ -446,13 +452,29 @@ def _optimize_multiclass(
 ) -> OptimizationResult:
     """Route multiclass optimization to appropriate algorithm."""
 
+    if mode == "bayes":
+        from .bayes_core import bayes_thresholds_from_costs
+
+        fp_costs = kwargs.get("fp_costs")
+        fn_costs = kwargs.get("fn_costs")
+
+        if fp_costs is None or fn_costs is None:
+            raise ValueError("Bayes mode requires 'fp_costs' and 'fn_costs' arrays")
+
+        return bayes_thresholds_from_costs(
+            np.asarray(fp_costs),
+            np.asarray(fn_costs),
+        )
+
     if mode == "expected":
         from .expected import expected_optimize_multiclass
 
+        # Convert Average enum to literal string
+        avg_literal = average.value if average != Average.AUTO else "macro"
         return expected_optimize_multiclass(
             y_score,
             metric=metric,
-            average=average,
+            average=avg_literal,  # type: ignore[arg-type]
             sample_weight=sample_weight,
             **kwargs,
         )
@@ -526,8 +548,12 @@ def _optimize_multilabel(
     if mode == "expected":
         from .expected import dinkelbach_expected_fbeta_multilabel
 
+        # Convert Average enum to literal string
+        avg_literal = average.value if average != Average.AUTO else "macro"
         return dinkelbach_expected_fbeta_multilabel(
-            y_score, average=average.value, **kwargs
+            y_score,
+            average=avg_literal,  # type: ignore[arg-type]
+            **kwargs,
         )
 
     # Empirical mode

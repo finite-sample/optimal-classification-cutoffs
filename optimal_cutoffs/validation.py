@@ -282,6 +282,213 @@ def validate_threshold(
 
 
 # ============================================================================
+# Utility Functions - Common patterns across the codebase
+# ============================================================================
+
+
+def normalize_binary_probabilities(p: np.ndarray) -> np.ndarray:
+    """Extract 1D probability array from 1D or 2D input.
+
+    Handles common binary probability formats:
+    - (n,) array: returned as-is
+    - (n, 2) array: returns p[:, 1] (positive class probability)
+    - (n, 1) array: returns p.ravel()
+
+    Parameters
+    ----------
+    p
+        Input probabilities, already converted to numpy array
+
+    Returns
+    -------
+    np.ndarray
+        1D probability array
+    """
+    if p.ndim == 2 and p.shape[1] == 2:
+        return p[:, 1]
+    elif p.ndim == 2 and p.shape[1] == 1:
+        return p.ravel()
+    return p
+
+
+def apply_threshold(
+    values: np.ndarray, threshold: float | np.ndarray, comparison: str = ">"
+) -> np.ndarray:
+    """Apply threshold with configurable comparison operator.
+
+    Parameters
+    ----------
+    values
+        Values to threshold
+    threshold
+        Threshold value(s)
+    comparison
+        Comparison operator (">" or ">=")
+
+    Returns
+    -------
+    np.ndarray
+        Binary predictions (0 or 1) as int32
+    """
+    if comparison == ">=":
+        return (values >= threshold).astype(np.int32)
+    return (values > threshold).astype(np.int32)
+
+
+def get_sample_weights(sample_weight: np.ndarray | None, n_samples: int) -> np.ndarray:
+    """Return sample weights, defaulting to uniform if None.
+
+    Parameters
+    ----------
+    sample_weight
+        Sample weights, or None for uniform weights
+    n_samples
+        Number of samples
+
+    Returns
+    -------
+    np.ndarray
+        Sample weights as float64 array
+
+    Raises
+    ------
+    ValueError
+        If sample_weight length doesn't match n_samples, contains invalid values,
+        or is otherwise invalid
+    """
+    if sample_weight is None:
+        return np.ones(n_samples, dtype=np.float64)
+    return validate_weights(sample_weight, n_samples)
+
+
+def apply_thresholds_multiclass(
+    probs: np.ndarray,
+    thresholds: np.ndarray,
+    comparison: str = ">",
+) -> np.ndarray:
+    """Apply per-class thresholds with argmax fallback for multiclass classification.
+
+    Decision rule: predict the class with highest probability among those exceeding
+    their threshold. Falls back to argmax when no class exceeds its threshold.
+
+    Parameters
+    ----------
+    probs
+        Probability matrix of shape (n_samples, n_classes)
+    thresholds
+        Per-class thresholds of shape (n_classes,)
+    comparison
+        Comparison operator (">" or ">=")
+
+    Returns
+    -------
+    np.ndarray
+        Predicted class labels of shape (n_samples,) as int32
+    """
+    if comparison == ">=":
+        valid = probs >= thresholds[None, :]
+    else:
+        valid = probs > thresholds[None, :]
+
+    masked = np.where(valid, probs, -np.inf)
+    predictions = np.argmax(masked, axis=1).astype(np.int32)
+
+    no_valid = ~np.any(valid, axis=1)
+    if np.any(no_valid):
+        predictions[no_valid] = np.argmax(probs[no_valid], axis=1)
+
+    return predictions
+
+
+# ============================================================================
+# Prediction Factory Functions - DRY pattern for creating predict closures
+# ============================================================================
+
+
+def make_binary_predictor(threshold: float, comparison: str = ">"):
+    """Factory for binary prediction functions.
+
+    Creates a prediction function that applies the given threshold with
+    the specified comparison operator.
+
+    Parameters
+    ----------
+    threshold
+        Decision threshold
+    comparison
+        Comparison operator (">" or ">=")
+
+    Returns
+    -------
+    callable
+        Function that takes probabilities and returns binary predictions
+    """
+
+    def predict(probs):
+        p = normalize_binary_probabilities(np.asarray(probs))
+        return apply_threshold(p, threshold, comparison)
+
+    return predict
+
+
+def make_multiclass_predictor(thresholds: np.ndarray, comparison: str = ">"):
+    """Factory for multiclass prediction functions.
+
+    Creates a prediction function that applies per-class thresholds with
+    argmax fallback.
+
+    Parameters
+    ----------
+    thresholds
+        Per-class thresholds of shape (n_classes,)
+    comparison
+        Comparison operator (">" or ">=")
+
+    Returns
+    -------
+    callable
+        Function that takes 2D probabilities and returns class predictions
+    """
+    thresholds_arr = np.asarray(thresholds, dtype=np.float64)
+
+    def predict(probs):
+        p = np.asarray(probs)
+        if p.ndim != 2:
+            raise ValueError("Multiclass requires 2D probabilities")
+        return apply_thresholds_multiclass(p, thresholds_arr, comparison)
+
+    return predict
+
+
+def make_margin_predictor(thresholds: np.ndarray):
+    """Factory for margin-based multiclass prediction functions.
+
+    Creates a prediction function using the margin rule: argmax(p_j - τ_j).
+    This ensures exactly one class is predicted per sample (single-label).
+
+    Parameters
+    ----------
+    thresholds
+        Per-class thresholds of shape (n_classes,)
+
+    Returns
+    -------
+    callable
+        Function that takes 2D probabilities and returns class predictions
+    """
+    thresholds_arr = np.asarray(thresholds, dtype=np.float64)
+
+    def predict(probs):
+        p = np.asarray(probs, dtype=np.float64)
+        if p.ndim != 2:
+            raise ValueError("Multiclass requires 2D probabilities")
+        margins = p - thresholds_arr[None, :]
+        return np.argmax(margins, axis=1).astype(np.int32)
+
+    return predict
+
+
+# ============================================================================
 # High-Level Validation - Combine multiple validations
 # ============================================================================
 

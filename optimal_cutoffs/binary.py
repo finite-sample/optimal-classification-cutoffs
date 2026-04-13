@@ -101,20 +101,12 @@ def optimize_f1_binary(
         tolerance=1e-12,
     )
 
-    # The result already has a predict function, but we need to handle different input formats
-    def predict_binary(probs: ArrayLike) -> np.ndarray:
-        p = np.asarray(probs)
-        if p.ndim == 2 and p.shape[1] == 2:
-            p = p[:, 1]  # Extract positive class probabilities
-        elif p.ndim == 2 and p.shape[1] == 1:
-            p = p.ravel()
-
-        return result.predict(p)
+    from .validation import make_binary_predictor
 
     return OptimizationResult(
         thresholds=result.thresholds,
         scores=result.scores,
-        predict=predict_binary,
+        predict=make_binary_predictor(result.thresholds[0], comparison),
         task=Task.BINARY,
         metric=f"f{beta}_score" if beta != 1.0 else "f1_score",
         n_classes=2,
@@ -186,18 +178,12 @@ def optimize_utility_binary(
     # Compute expected utility on this data
     expected_utility = optimizer.expected_utility(pred_proba)
 
-    def predict_binary(probs: ArrayLike) -> np.ndarray:
-        p = np.asarray(probs)
-        if p.ndim == 2 and p.shape[1] == 2:
-            p = p[:, 1]
-        elif p.ndim == 2 and p.shape[1] == 1:
-            p = p.ravel()
-        return (p >= threshold).astype(np.int32)
+    from .validation import make_binary_predictor
 
     return OptimizationResult(
         thresholds=np.array([threshold]),
         scores=np.array([expected_utility]),
-        predict=predict_binary,
+        predict=make_binary_predictor(threshold, ">="),
         task=Task.BINARY,
         metric="expected_utility",
         n_classes=2,
@@ -301,22 +287,12 @@ def optimize_metric_binary(
         case _:
             raise ValueError(f"Unknown method: {method}")
 
-    def predict_binary(probs: ArrayLike) -> np.ndarray:
-        p = np.asarray(probs)
-        if p.ndim == 2 and p.shape[1] == 2:
-            p = p[:, 1]
-        elif p.ndim == 2 and p.shape[1] == 1:
-            p = p.ravel()
-
-        if comparison == ">=":
-            return (p >= result.thresholds[0]).astype(np.int32)
-        else:
-            return (p > result.thresholds[0]).astype(np.int32)
+    from .validation import make_binary_predictor
 
     return OptimizationResult(
         thresholds=result.thresholds,
         scores=result.scores,
-        predict=predict_binary,
+        predict=make_binary_predictor(result.thresholds[0], comparison),
         task=Task.BINARY,
         metric=metric,
         n_classes=2,

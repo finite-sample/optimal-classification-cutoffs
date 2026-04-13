@@ -26,7 +26,10 @@ class TestModeParameter:
         """Test that mode='bayes' requires utility parameter."""
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
-        with pytest.raises(ValueError, match="mode='bayes' requires utility parameter"):
+        with pytest.raises(
+            ValueError,
+            match="mode='bayes' requires 'utility' .* or 'fp_costs'/'fn_costs'",
+        ):
             optimize_thresholds(None, y_prob, mode="bayes")
 
     def test_mode_bayes_with_utility(self):
@@ -294,7 +297,7 @@ class TestErrorMessages:
         with pytest.raises(ValueError) as exc_info:
             optimize_thresholds(None, y_prob, mode="bayes")
 
-        assert "mode='bayes' requires utility parameter" in str(exc_info.value)
+        assert "mode='bayes' requires" in str(exc_info.value)
 
     def test_mode_expected_supports_multiple_metrics(self):
         """Test that mode='expected' currently supports F-beta metrics only."""

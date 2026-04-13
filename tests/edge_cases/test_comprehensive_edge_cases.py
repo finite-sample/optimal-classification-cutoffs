@@ -431,28 +431,6 @@ class TestErrorConditionEdgeCases:
             optimize_thresholds([0, 1, 0], [0.1, 0.5, 1.1], metric="f1")
 
 
-class TestWrapperEdgeCases:
-    """Test wrapper edge cases - disabled after wrapper removal."""
-
-    @pytest.mark.skip(
-        reason="ThresholdOptimizer wrapper removed - use optimize_thresholds directly"
-    )
-    def test_wrapper_with_edge_cases(self):
-        """Test that the wrapper handles edge cases properly."""
-        # This test was for the removed ThresholdOptimizer wrapper
-        # Use optimize_thresholds() directly instead
-        pass
-
-    @pytest.mark.skip(
-        reason="ThresholdOptimizer wrapper removed - use optimize_thresholds directly"
-    )
-    def test_wrapper_multiclass_edge_cases(self):
-        """Test wrapper with multiclass edge cases."""
-        # This test was for the removed ThresholdOptimizer wrapper
-        # Use optimize_thresholds() directly instead
-        pass
-
-
 class TestPerformanceEdgeCases:
     """Test performance characteristics with edge cases."""
 

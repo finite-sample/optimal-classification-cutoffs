@@ -75,20 +75,3 @@ def gradient_ascent(
     )
 
 
-def utility_based(
-    y_true: ArrayLike | None,
-    y_score: ArrayLike,
-    *,
-    utility: dict[str, float],
-    sample_weight: ArrayLike | None = None,
-    **kwargs,
-) -> OptimizationResult:
-    """Closed-form Bayes optimal from utility specification.
-
-    Moved from optimize_utility_binary().
-    """
-    from ..binary import optimize_utility_binary
-
-    return optimize_utility_binary(
-        y_true, y_score, utility=utility, sample_weight=sample_weight, **kwargs
-    )

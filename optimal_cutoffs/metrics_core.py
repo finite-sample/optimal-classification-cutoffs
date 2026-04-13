@@ -264,9 +264,9 @@ def _safe_div(
         # Scalar case
         if denominator == 0:
             return 0.0
-        result = numerator / denominator
+        scalar_result = numerator / denominator
         # Handle inf/nan cases in scalar arithmetic
-        return result if np.isfinite(result) else 0.0
+        return scalar_result if np.isfinite(scalar_result) else 0.0
 
 
 # ============================================================================
@@ -374,14 +374,11 @@ def confusion_matrix_from_predictions(
     >>> (tp, tn, fp, fn)
     (2.0, 1.0, 1.0, 1.0)
     """
+    from .validation import get_sample_weights
+
     true_labels = np.asarray(true_labels, dtype=np.int8)
     pred_labels = np.asarray(pred_labels, dtype=np.int8)
-
-    weights = (
-        np.ones_like(true_labels, dtype=float)
-        if sample_weight is None
-        else np.asarray(sample_weight, dtype=float)
-    )
+    weights = get_sample_weights(sample_weight, len(true_labels))
 
     # Single-pass optimization: 2-bit encoding (true*2 + pred)
     # 0=TN, 1=FP, 2=FN, 3=TP
@@ -434,10 +431,9 @@ def confusion_matrix_at_threshold(
     _validate_comparison_operator(comparison)
 
     # Apply threshold
-    if comparison == ">":
-        pred_labels = (pred_proba > threshold).astype(np.int8)
-    else:  # ">="
-        pred_labels = (pred_proba >= threshold).astype(np.int8)
+    from .validation import apply_threshold
+
+    pred_labels = apply_threshold(pred_proba, threshold, comparison).astype(np.int8)
 
     # Use optimized computation
     return confusion_matrix_from_predictions(true_labels, pred_labels, sample_weight)
@@ -854,20 +850,15 @@ def compute_multiclass_metrics_from_labels(
     float or np.ndarray
         Computed metric score
     """
+    from .validation import get_sample_weights
+
     true_labels = np.asarray(true_labels, dtype=int)
     pred_labels = np.asarray(pred_labels, dtype=int)
 
     if true_labels.shape != pred_labels.shape:
         raise ValueError("true_labels and pred_labels must have same shape")
 
-    weights = (
-        np.ones_like(true_labels, dtype=float)
-        if sample_weight is None
-        else np.asarray(sample_weight, dtype=float)
-    )
-
-    if weights.shape[0] != true_labels.shape[0]:
-        raise ValueError("sample_weight must have same length as labels")
+    weights = get_sample_weights(sample_weight, true_labels.shape[0])
 
     if n_classes is None:
         n_classes = (

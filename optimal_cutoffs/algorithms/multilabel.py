@@ -60,28 +60,3 @@ def micro_coordinate_ascent(
     )
 
 
-def general_multilabel(
-    y_true: ArrayLike,
-    y_score: ArrayLike,
-    *,
-    metric: str = "f1",
-    average: str = "macro",
-    method: str = "auto",
-    sample_weight: ArrayLike | None = None,
-    **kwargs,
-) -> OptimizationResult:
-    """General multilabel optimization with auto-routing.
-
-    Moved from optimize_multilabel().
-    """
-    from ..multilabel import optimize_multilabel
-
-    return optimize_multilabel(
-        y_true,
-        y_score,
-        metric=metric,
-        average=average,
-        method=method,
-        sample_weight=sample_weight,
-        **kwargs,
-    )

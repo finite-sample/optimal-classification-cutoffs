@@ -16,8 +16,6 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from sklearn.model_selection import KFold, StratifiedKFold
 
-# Import from the cv.py module file, not the cv/ package
-from optimal_cutoffs import cv as cv_module
 from optimal_cutoffs.cv import (
     cross_validate,
     nested_cross_validate,
@@ -283,23 +281,6 @@ class TestPerformanceImprovement:
 class TestThresholdAveraging:
     """Test threshold averaging behavior for statistical soundness."""
 
-    def test_threshold_dict_averaging(self):
-        """Test averaging of threshold dictionaries."""
-        # Test with scalar thresholds
-        dicts = [{"threshold": 0.5}, {"threshold": 0.7}, {"threshold": 0.3}]
-        result = cv_module._average_threshold_dicts(dicts)
-        assert abs(result["threshold"] - 0.5) < 1e-10
-
-        # Test with array thresholds
-        dicts = [
-            {"thresholds": np.array([0.5, 0.6])},
-            {"thresholds": np.array([0.7, 0.8])},
-            {"thresholds": np.array([0.3, 0.4])},
-        ]
-        result = cv_module._average_threshold_dicts(dicts)
-        expected = np.array([0.5, 0.6])
-        np.testing.assert_allclose(result["thresholds"], expected)
-
     def test_nested_cv_uses_threshold_averaging(self):
         """Test that nested CV averages thresholds rather than selecting best."""
         y_true, y_prob = _generate_cv_data(80, random_state=42)
@@ -381,18 +362,6 @@ class TestRobustness:
             assert 0.0 <= threshold <= 1.0
         for score in scores:
             assert 0.0 <= score <= 1.0
-
-    def test_extreme_threshold_handling(self):
-        """Test handling of extreme threshold values in averaging."""
-        # Test with very small and large thresholds
-        dicts = [
-            {"threshold": 0.001},
-            {"threshold": 0.999},
-            {"threshold": 0.5},
-        ]
-        result = cv_module._average_threshold_dicts(dicts)
-        assert 0.0 <= result["threshold"] <= 1.0
-
 
 class TestCrossValidationWithWeights:
     """Test cross-validation with sample weights."""

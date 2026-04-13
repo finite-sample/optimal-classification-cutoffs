@@ -11,7 +11,6 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .core import OptimizationResult, Task
-from .validation import validate_classification
 
 # ============================================================================
 # Utility Specification
@@ -353,19 +352,12 @@ def bayes_optimal_threshold(
     # For now, use a placeholder since we need probabilities to compute expected utility
     expected_utility = 0.0
 
-    # Create prediction function (closure captures threshold)
-    def predict_binary(probs):
-        p = np.asarray(probs)
-        if p.ndim == 2 and p.shape[1] == 2:
-            p = p[:, 1]  # Use positive class probabilities
-        elif p.ndim == 2 and p.shape[1] == 1:
-            p = p.ravel()
-        return (p >= threshold).astype(np.int32)
+    from .validation import make_binary_predictor
 
     return OptimizationResult(
         thresholds=np.array([threshold]),
         scores=np.array([expected_utility]),
-        predict=predict_binary,
+        predict=make_binary_predictor(threshold, ">="),
         task=Task.BINARY,
         metric="expected_utility",
         n_classes=2,
@@ -373,7 +365,7 @@ def bayes_optimal_threshold(
 
 
 def bayes_optimal_decisions(
-    probabilities: NDArray[np.float64],
+    probabilities: NDArray[np.float64] | None = None,
     utility_matrix: NDArray[np.float64] | None = None,
     cost_matrix: NDArray[np.float64] | None = None,
 ) -> OptimizationResult:
@@ -433,9 +425,7 @@ def bayes_optimal_decisions(
     if utility_matrix is not None and cost_matrix is not None:
         raise ValueError("Provide either utility_matrix or cost_matrix, not both")
 
-    # Convert to arrays
-    probs = np.asarray(probabilities, dtype=np.float64)
-
+    # Convert utility/cost matrix to array
     if utility_matrix is not None:
         utility = np.asarray(utility_matrix, dtype=np.float64)
     else:
@@ -443,28 +433,36 @@ def bayes_optimal_decisions(
             cost_matrix, dtype=np.float64
         )  # Convert costs to utilities
 
-    # Validate shapes
-    if probs.ndim != 2:
-        raise ValueError("probabilities must be 2D array")
+    # Validate utility matrix shape
     if utility.ndim != 2:
         raise ValueError("utility_matrix must be 2D array")
-    if probs.shape[1] != utility.shape[1]:
-        raise ValueError(
-            f"probabilities has {probs.shape[1]} classes but "
-            f"utility_matrix has {utility.shape[1]}"
-        )
 
     n_decisions = utility.shape[0]
     n_classes = utility.shape[1]
 
-    # Compute expected utilities/costs: E[U|x] = Σ_y U(d,y) P(y|x)
-    expected = (
-        probs @ utility.T
-    )  # (n_samples, n_classes) @ (n_classes, n_decisions) -> (n_samples, n_decisions)
+    # Handle case when probabilities are provided vs not
+    if probabilities is not None:
+        probs = np.asarray(probabilities, dtype=np.float64)
 
-    # Always maximize utility (whether provided directly or converted from costs)
-    optimal_values = np.max(expected, axis=1)
-    mean_value = np.mean(optimal_values)
+        if probs.ndim != 2:
+            raise ValueError("probabilities must be 2D array")
+        if probs.shape[1] != n_classes:
+            raise ValueError(
+                f"probabilities has {probs.shape[1]} classes but "
+                f"utility_matrix has {n_classes}"
+            )
+
+        # Compute expected utilities/costs: E[U|x] = Σ_y U(d,y) P(y|x)
+        expected = (
+            probs @ utility.T
+        )  # (n_samples, n_classes) @ (n_classes, n_decisions) -> (n_samples, n_decisions)
+
+        # Always maximize utility (whether provided directly or converted from costs)
+        optimal_values = np.max(expected, axis=1)
+        mean_value = float(np.mean(optimal_values))
+    else:
+        # No probabilities provided - create policy-only result
+        mean_value = 0.0
 
     # Create prediction function (closure captures utility matrix)
     def predict_bayes_decisions(probabilities_new):
@@ -610,156 +608,3 @@ def bayes_thresholds_from_costs(
     )
 
 
-# ============================================================================
-# Integration with Optimization Pipeline
-# ============================================================================
-
-
-def optimize_bayes_thresholds(
-    labels, predictions, utility: UtilitySpec | dict[str, float], weights=None
-) -> OptimizationResult:
-    """Optimize thresholds using Bayes decision theory.
-
-    Parameters
-    ----------
-    labels : array-like
-        True labels
-    predictions : array-like
-        Predicted probabilities
-    utility : UtilitySpec or dict
-        Utility specification
-    weights : array-like, optional
-        Sample weights
-
-    Returns
-    -------
-    OptimizationResult
-        Unified optimization result with thresholds, scores, and predict function
-    """
-    # Validate inputs - for Bayes optimization, labels can be None
-    if labels is None:
-        # For Bayes mode, only validate predictions and infer problem type
-        from .validation import infer_problem_type, validate_probabilities
-
-        problem_type = infer_problem_type(predictions)
-
-        if problem_type == "binary":
-            predictions = validate_probabilities(
-                predictions, binary=True, require_proba=True
-            )
-        else:
-            predictions = validate_probabilities(
-                predictions, binary=False, require_proba=True
-            )
-
-        # Handle sample weights
-        if weights is not None:
-            weights = np.asarray(weights, dtype=np.float64)
-            if len(weights) != len(predictions):
-                raise ValueError("Sample weights must match number of predictions")
-
-        labels = None  # Keep labels as None for Bayes mode
-    else:
-        labels, predictions, weights, problem_type = validate_classification(
-            labels, predictions, weights
-        )
-
-    # Convert utility if needed
-    if isinstance(utility, dict):
-        utility = UtilitySpec.from_dict(utility)
-
-    # Create optimizer
-    optimizer = BayesOptimal(utility)
-
-    # Compute thresholds based on problem type
-    if problem_type == "binary":
-        thresholds = np.array([optimizer.compute_threshold()])
-        n_classes = 2
-    else:
-        n_classes = predictions.shape[1]
-        thresholds = optimizer.compute_thresholds(n_classes)
-
-    # Compute expected utility if we have probabilities
-    # probs = Probabilities.from_array(predictions)
-    # expected_util = optimizer.expected_utility(probs)
-    expected_util = 0.0  # Temporary placeholder
-
-    # Create prediction function based on problem type
-    if problem_type == "binary":
-        threshold = float(thresholds[0])
-
-        def predict_binary(probs):
-            p = np.asarray(probs)
-            if p.ndim == 2 and p.shape[1] == 2:
-                p = p[:, 1]  # Use positive class probabilities
-            elif p.ndim == 2 and p.shape[1] == 1:
-                p = p.ravel()
-            return (p >= threshold).astype(np.int32)
-
-        predict_fn = predict_binary
-    else:
-
-        def predict_multiclass(probs):
-            p = np.asarray(probs)
-            if p.ndim != 2 or p.shape[1] != len(thresholds):
-                raise ValueError(
-                    "Multiclass probabilities must be (n_samples, n_classes)"
-                )
-
-            mask = p >= thresholds[None, :]
-            masked = np.where(mask, p, -np.inf)
-            pred = np.argmax(masked, axis=1)
-            none_pass = ~np.any(mask, axis=1)
-            if np.any(none_pass):
-                # Fallback: pure argmax of probabilities
-                pred[none_pass] = np.argmax(p[none_pass], axis=1)
-            return pred.astype(np.int32)
-
-        predict_fn = predict_multiclass
-
-    return OptimizationResult(
-        thresholds=thresholds,
-        scores=np.full(n_classes, expected_util),
-        predict=predict_fn,
-        task=Task.MULTICLASS,
-        metric="expected_utility",
-        n_classes=n_classes,
-    )
-
-
-# ============================================================================
-# Simple API
-# ============================================================================
-
-
-def compute_bayes_threshold(
-    costs: dict[str, float], benefits: dict[str, float] | None = None
-) -> float:
-    """Simple API for computing Bayes-optimal threshold.
-
-    Parameters
-    ----------
-    costs : dict
-        Dictionary with 'fp' and 'fn' keys for costs
-    benefits : dict, optional
-        Dictionary with 'tp' and 'tn' keys for benefits
-
-    Returns
-    -------
-    float
-        Optimal threshold
-
-    Examples
-    --------
-    >>> # FN costs 5x more than FP
-    >>> threshold = compute_bayes_threshold({'fp': 1, 'fn': 5})
-    >>> print(f"{threshold:.3f}")
-    0.167
-    """
-    fp_cost = costs.get("fp", 1.0)
-    fn_cost = costs.get("fn", 1.0)
-    tp_benefit = benefits.get("tp", 0.0) if benefits else 0.0
-    tn_benefit = benefits.get("tn", 0.0) if benefits else 0.0
-
-    result = bayes_optimal_threshold(fp_cost, fn_cost, tp_benefit, tn_benefit)
-    return result.threshold

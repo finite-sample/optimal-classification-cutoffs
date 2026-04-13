@@ -84,26 +84,3 @@ def coordinate_ascent(
     )
 
 
-def micro_single_threshold(
-    y_true: ArrayLike,
-    y_score: ArrayLike,
-    *,
-    metric: str = "f1",
-    method: str = "auto",
-    sample_weight: ArrayLike | None = None,
-    **kwargs,
-) -> OptimizationResult:
-    """Single threshold applied to all classes.
-
-    Moved from optimize_micro_multiclass().
-    """
-    from ..multiclass import optimize_micro_multiclass
-
-    return optimize_micro_multiclass(
-        y_true,
-        y_score,
-        metric=metric,
-        method=method,
-        sample_weight=sample_weight,
-        **kwargs,
-    )

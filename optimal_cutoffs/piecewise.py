@@ -25,7 +25,7 @@ from .metrics_core import (
     compute_vectorized_confusion_matrices,
     confusion_matrix_from_predictions,
 )
-from .validation import validate_binary_classification, validate_weights
+from .validation import get_sample_weights, validate_binary_classification
 
 Array = np.ndarray[Any, Any]
 
@@ -117,16 +117,11 @@ def _realized_k(p_sorted: Array, threshold: float, inclusive: bool) -> int:
 
 def _predict_from_threshold(probs: Array, threshold: float, inclusive: bool) -> Array:
     """Predict labels (0/1) from probabilities and threshold."""
-    p = np.asarray(probs)
-    if p.ndim == 2 and p.shape[1] == 2:
-        p = p[:, 1]
-    elif p.ndim == 2 and p.shape[1] == 1:
-        p = p.ravel()
-    return (
-        (p >= threshold).astype(np.int32)
-        if inclusive
-        else (p > threshold).astype(np.int32)
-    )
+    from .validation import apply_threshold, normalize_binary_probabilities
+
+    p = normalize_binary_probabilities(np.asarray(probs))
+    comparison = ">=" if inclusive else ">"
+    return apply_threshold(p, threshold, comparison)
 
 
 def optimal_threshold_sortscan(
@@ -192,11 +187,7 @@ def optimal_threshold_sortscan(
         y_true, pred_prob, require_proba=require_proba
     )
     n = y.shape[0]
-    weights = (
-        validate_weights(sample_weight, n)
-        if sample_weight is not None
-        else np.ones(n, dtype=np.float64)
-    )
+    weights = get_sample_weights(sample_weight, n)
 
     # 2) Sort once by descending score (stable)
     order = np.argsort(-p, kind="mergesort")

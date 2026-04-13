@@ -104,22 +104,19 @@ def optimize_ovr_independent(
     # Macro average score
     macro_score = np.mean(optimal_scores)
 
+    from .validation import apply_threshold
+
     def predict_multiclass_independent(probs: ArrayLike) -> np.ndarray:
         """Independent per-class predictions (can predict multiple classes)."""
         p = np.asarray(probs, dtype=np.float64)
         if p.ndim != 2 or p.shape[1] != n_classes:
             raise ValueError(f"Expected probabilities shape (n_samples, {n_classes})")
 
-        if comparison == ">=":
-            predictions = (p >= optimal_thresholds[None, :]).astype(np.int32)
-        else:
-            predictions = (p > optimal_thresholds[None, :]).astype(np.int32)
-
-        return predictions
+        return apply_threshold(p, optimal_thresholds[None, :], comparison)
 
     return OptimizationResult(
         thresholds=optimal_thresholds,
-        scores=np.array([macro_score]),
+        scores=np.array([macro_score], dtype=np.float64),
         predict=predict_multiclass_independent,
         task=Task.MULTICLASS,
         metric=f"macro_{metric}_ovr_independent",
@@ -196,11 +193,12 @@ def optimize_ovr_margin(
         raise NotImplementedError("'>' is required")
 
     # Prepare data for coordinate ascent kernel
+    from .validation import get_sample_weights
+
     true_labels_int32 = np.asarray(true_labels, dtype=np.int32)
     pred_proba_float64 = np.asarray(pred_proba, dtype=np.float64, order="C")
-    weights = (
-        None if sample_weight is None else np.asarray(sample_weight, dtype=np.float64)
-    )
+    n_samples = len(true_labels_int32)
+    weights = get_sample_weights(sample_weight, n_samples)
 
     # Run coordinate ascent
     thresholds, best_score, history = coordinate_ascent_kernel(
@@ -211,22 +209,12 @@ def optimize_ovr_margin(
         tol=tolerance,
     )
 
-    def predict_multiclass_margin(probs: ArrayLike) -> np.ndarray:
-        """Margin-based prediction: argmax(p_j - τ_j)."""
-        p = np.asarray(probs, dtype=np.float64)
-        if p.ndim != 2 or p.shape[1] != n_classes:
-            raise ValueError(f"Expected probabilities shape (n_samples, {n_classes})")
-
-        # Compute margins and predict class with highest margin
-        margins = p - thresholds[None, :]
-        predictions = np.argmax(margins, axis=1).astype(np.int32)
-
-        return predictions
+    from .validation import make_margin_predictor
 
     return OptimizationResult(
         thresholds=thresholds.astype(np.float64),
         scores=np.array([best_score]),
-        predict=predict_multiclass_margin,
+        predict=make_margin_predictor(thresholds),
         task=Task.MULTICLASS,
         metric=f"macro_{metric}_margin_rule",
         n_classes=n_classes,
@@ -314,28 +302,7 @@ def optimize_micro_multiclass(
 
     optimal_threshold = result.thresholds[0]
 
-    def predict_multiclass_micro(probs: ArrayLike) -> np.ndarray:
-        """Predict using single threshold across all classes."""
-        p = np.asarray(probs, dtype=np.float64)
-        if p.ndim != 2 or p.shape[1] != n_classes:
-            raise ValueError(f"Expected probabilities shape (n_samples, {n_classes})")
-
-        # Apply threshold to get valid classes
-        if comparison == ">=":
-            valid = p >= optimal_threshold
-        else:
-            valid = p > optimal_threshold
-
-        # Predict class with highest valid probability
-        masked_probs = np.where(valid, p, -np.inf)
-        predictions = np.argmax(masked_probs, axis=1)
-
-        # Fallback to argmax when no classes are valid
-        no_valid = ~np.any(valid, axis=1)
-        if np.any(no_valid):
-            predictions[no_valid] = np.argmax(p[no_valid], axis=1)
-
-        return predictions.astype(np.int32)
+    from .validation import make_multiclass_predictor
 
     # Return same threshold for all classes
     thresholds = np.full(n_classes, optimal_threshold, dtype=np.float64)
@@ -343,7 +310,7 @@ def optimize_micro_multiclass(
     return OptimizationResult(
         thresholds=thresholds,
         scores=result.scores,
-        predict=predict_multiclass_micro,
+        predict=make_multiclass_predictor(thresholds, comparison),
         task=Task.MULTICLASS,
         metric=f"micro_{metric}",
         n_classes=n_classes,

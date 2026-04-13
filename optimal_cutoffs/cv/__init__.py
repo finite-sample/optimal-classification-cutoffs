@@ -191,37 +191,3 @@ def nested_cross_validate(
     )
 
     return thresholds, scores
-
-
-def _average_threshold_dicts(threshold_dicts: list[dict]) -> dict:
-    """Average threshold dictionaries for cross-validation.
-
-    Parameters
-    ----------
-    threshold_dicts : list of dict
-        List of threshold dictionaries to average
-
-    Returns
-    -------
-    dict
-        Dictionary with averaged thresholds
-    """
-    if not threshold_dicts:
-        return {}
-
-    # Get keys from first dictionary
-    keys = threshold_dicts[0].keys()
-    result = {}
-
-    for key in keys:
-        values = [d[key] for d in threshold_dicts]
-
-        # Handle both scalar and array values
-        if isinstance(values[0], int | float):
-            # Scalar threshold
-            result[key] = float(np.mean(values))
-        else:
-            # Array thresholds
-            result[key] = np.mean(values, axis=0)
-
-    return result

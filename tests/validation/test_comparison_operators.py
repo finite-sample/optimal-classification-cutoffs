@@ -175,15 +175,6 @@ class TestComparisonOperators:
         assert np.all(np.isfinite(thresh_gt.thresholds)), "Thresholds should be finite"
         assert np.all(np.isfinite(thresh_gte.thresholds)), "Thresholds should be finite"
 
-    @pytest.mark.skip(
-        reason="ThresholdOptimizer wrapper removed - use optimize_thresholds directly"
-    )
-    def test_threshold_optimizer_comparison_operators(self):
-        """Test ThresholdOptimizer class with comparison operators."""
-        # This test was for the removed ThresholdOptimizer wrapper
-        # Use optimize_thresholds() directly instead
-        pass
-
     def test_comparison_operator_validation(self):
         """Test that invalid comparison operators raise appropriate errors."""
         true_labels = np.array([0, 1, 0, 1])

@@ -81,7 +81,9 @@ class OptimizationResult:
                 return f"OptimizationResult(task={self.task.value}, {self.metric}={self.score:.3f})"
 
 
-def infer_task_with_explanation(y_true: ArrayLike, y_score: ArrayLike) -> tuple[Task, list[str], list[str]]:
+def infer_task_with_explanation(
+    y_true: ArrayLike, y_score: ArrayLike
+) -> tuple[Task, list[str], list[str]]:
     """Infer task type with detailed explanation.
 
     Parameters
@@ -106,8 +108,8 @@ def infer_task_with_explanation(y_true: ArrayLike, y_score: ArrayLike) -> tuple[
         If y_score shape cannot be interpreted for task inference.
     """
     y_score = np.asarray(y_score)
-    notes = []
-    warnings = []
+    notes: list[str] = []
+    warnings: list[str] = []
 
     if y_score.ndim == 1:
         notes.append("Detected 1D scores → binary classification")

@@ -125,16 +125,13 @@ def optimize_macro_multilabel(
 
     def predict_multilabel(probs: ArrayLike) -> np.ndarray:
         """Predict using per-label thresholds (independent decisions)."""
+        from .validation import apply_threshold
+
         p = np.asarray(probs, dtype=np.float64)
         if p.ndim != 2 or p.shape[1] != n_labels:
             raise ValueError(f"Expected probabilities shape (n_samples, {n_labels})")
 
-        if comparison == ">=":
-            predictions = (p >= optimal_thresholds[None, :]).astype(np.int32)
-        else:
-            predictions = (p > optimal_thresholds[None, :]).astype(np.int32)
-
-        return predictions
+        return apply_threshold(p, optimal_thresholds[None, :], comparison)
 
     return OptimizationResult(
         thresholds=optimal_thresholds,
@@ -194,30 +191,27 @@ def optimize_micro_multilabel(
     from .metrics_core import get_metric_function
 
     # Validate inputs for multilabel
-    true_labels = np.asarray(true_labels, dtype=np.int8)
-    pred_proba = np.asarray(pred_proba, dtype=np.float64)
+    labels_arr: np.ndarray = np.asarray(true_labels, dtype=np.int8)
+    proba_arr: np.ndarray = np.asarray(pred_proba, dtype=np.float64)
 
-    if true_labels.ndim != 2:
+    if labels_arr.ndim != 2:
         raise ValueError(
-            f"Multilabel true_labels must be 2D, got shape {true_labels.shape}"
+            f"Multilabel true_labels must be 2D, got shape {labels_arr.shape}"
         )
-    if pred_proba.ndim != 2:
+    if proba_arr.ndim != 2:
         raise ValueError(
-            f"Multilabel pred_proba must be 2D, got shape {pred_proba.shape}"
+            f"Multilabel pred_proba must be 2D, got shape {proba_arr.shape}"
         )
-    if true_labels.shape != pred_proba.shape:
+    if labels_arr.shape != proba_arr.shape:
         raise ValueError(
-            f"Shape mismatch: labels {true_labels.shape} vs probs {pred_proba.shape}"
+            f"Shape mismatch: labels {labels_arr.shape} vs probs {proba_arr.shape}"
         )
 
-    n_samples, n_labels = true_labels.shape
+    n_samples, n_labels = labels_arr.shape
 
-    if sample_weight is not None:
-        sample_weight = np.asarray(sample_weight, dtype=np.float64)
-        if len(sample_weight) != n_samples:
-            raise ValueError("sample_weight must have same length as n_samples")
-    else:
-        sample_weight = np.ones(n_samples, dtype=np.float64)
+    from .validation import get_sample_weights
+
+    weights_arr = get_sample_weights(sample_weight, n_samples)
 
     # Initialize thresholds
     thresholds = np.zeros(n_labels, dtype=np.float64)
@@ -231,20 +225,16 @@ def optimize_micro_multilabel(
         for j in range(n_labels):
             # Binary predictions for label j
             if comparison == ">=":
-                pred_j = (pred_proba[:, j] >= tau[j]).astype(int)
+                pred_j = (proba_arr[:, j] >= tau[j]).astype(int)
             else:
-                pred_j = (pred_proba[:, j] > tau[j]).astype(int)
+                pred_j = (proba_arr[:, j] > tau[j]).astype(int)
 
-            true_j = (
-                true_labels[:, j]
-                if true_labels.ndim == 2
-                else (true_labels == j).astype(int)
-            )
+            true_j = labels_arr[:, j]
 
             # Confusion matrix for label j
-            tp_j = np.sum(sample_weight * (true_j == 1) * (pred_j == 1))
-            fp_j = np.sum(sample_weight * (true_j == 0) * (pred_j == 1))
-            fn_j = np.sum(sample_weight * (true_j == 1) * (pred_j == 0))
+            tp_j = np.sum(weights_arr * (true_j == 1) * (pred_j == 1))
+            fp_j = np.sum(weights_arr * (true_j == 0) * (pred_j == 1))
+            fn_j = np.sum(weights_arr * (true_j == 1) * (pred_j == 0))
 
             total_tp += tp_j
             total_fp += fp_j
@@ -261,7 +251,7 @@ def optimize_micro_multilabel(
 
         for j in range(n_labels):
             # Fix all other thresholds, optimize τ_j
-            candidates = np.unique(pred_proba[:, j])
+            candidates = np.unique(proba_arr[:, j])
             best_tau_j = thresholds[j]
             best_score_j = best_score
 
@@ -280,23 +270,20 @@ def optimize_micro_multilabel(
         if not improved:
             break
 
-    def predict_multilabel(probs: ArrayLike) -> np.ndarray:
+    def predict_multilabel_micro(probs: ArrayLike) -> np.ndarray:
         """Predict using micro-optimized thresholds."""
+        from .validation import apply_threshold
+
         p = np.asarray(probs, dtype=np.float64)
         if p.ndim != 2 or p.shape[1] != n_labels:
             raise ValueError(f"Expected probabilities shape (n_samples, {n_labels})")
 
-        if comparison == ">=":
-            predictions = (p >= thresholds[None, :]).astype(np.int32)
-        else:
-            predictions = (p > thresholds[None, :]).astype(np.int32)
-
-        return predictions
+        return apply_threshold(p, thresholds[None, :], comparison)
 
     return OptimizationResult(
         thresholds=thresholds,
         scores=np.array([best_score]),
-        predict=predict_multilabel,
+        predict=predict_multilabel_micro,
         task=Task.MULTILABEL,
         metric=f"micro_{metric}",
         n_classes=n_labels,
