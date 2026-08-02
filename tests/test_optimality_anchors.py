@@ -178,3 +178,137 @@ def test_expected_mode_matches_an_independent_expected_f1_grid():
     best = max(expected_f1(t) for t in grid)
 
     assert expected_f1(result.threshold) == pytest.approx(best, abs=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Invariance identities.
+#
+# The most productive tests in this audit were transformations that provably
+# cannot change the answer, because a violation is a bug rather than a
+# judgement call. The two that started it -- unit weights reproducing the
+# unweighted fit, and duplicating a row equalling weight 2 -- generalise into
+# the family below.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("metric", METRICS)
+def test_scaling_every_weight_leaves_the_threshold_alone(metric, signal_data):
+    """All metrics here are ratios, so a common factor on the weights cancels."""
+    y, score = signal_data
+    ones = optimize_thresholds(
+        y, score, metric=metric, sample_weight=np.ones(len(y))
+    ).threshold
+    sevens = optimize_thresholds(
+        y, score, metric=metric, sample_weight=np.full(len(y), 7.0)
+    ).threshold
+    assert ones == sevens
+
+
+@pytest.mark.parametrize("metric", METRICS)
+def test_replicating_the_dataset_leaves_the_score_alone(metric, signal_data):
+    """Tiling the whole sample scales every confusion cell equally."""
+    y, score = signal_data
+    once = optimize_thresholds(y, score, metric=metric).threshold
+    thrice = optimize_thresholds(
+        np.tile(y, 3), np.tile(score, 3), metric=metric
+    ).threshold
+    assert compute_metric_at_threshold(y, score, once, metric) == pytest.approx(
+        compute_metric_at_threshold(np.tile(y, 3), np.tile(score, 3), thrice, metric),
+        abs=1e-9,
+    )
+
+
+@pytest.mark.parametrize("metric", METRICS)
+def test_a_monotone_transform_of_scores_induces_the_same_split(metric, signal_data):
+    """Only the ORDER of the scores can matter, not their values.
+
+    Cubing is strictly increasing on (0, 1), so the optimal partition of the
+    samples must be identical even though the threshold itself moves.
+    """
+    y, score = signal_data
+    plain = optimize_thresholds(y, score, metric=metric).threshold
+    cubed_scores = score**3
+    cubed = optimize_thresholds(y, cubed_scores, metric=metric).threshold
+    assert np.array_equal(score > plain, cubed_scores > cubed)
+
+
+@pytest.mark.parametrize("metric", METRICS)
+def test_perfectly_separable_data_reaches_the_maximum(metric):
+    y = np.array([0] * 20 + [1] * 20)
+    score = np.concatenate([np.linspace(0.01, 0.4, 20), np.linspace(0.6, 0.99, 20)])
+    result = optimize_thresholds(y, score, metric=metric)
+    assert compute_metric_at_threshold(y, score, result.threshold, metric) == pytest.approx(
+        1.0, abs=1e-9
+    )
+
+
+@pytest.mark.parametrize("metric", METRICS)
+def test_row_order_does_not_matter(metric, signal_data):
+    y, score = signal_data
+    order = np.random.RandomState(2).permutation(len(y))
+    assert (
+        optimize_thresholds(y, score, metric=metric).threshold
+        == optimize_thresholds(y[order], score[order], metric=metric).threshold
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cost-matrix identities.
+#
+# These are what establish the orientation as a fact rather than a convention:
+# the row-shift identity below fails outright under a transposed reading.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def multiclass_problem():
+    from optimal_cutoffs import optimize_decisions
+
+    rng = np.random.RandomState(23)
+    logits = rng.randn(150, 3)
+    probs = np.exp(logits)
+    probs /= probs.sum(axis=1, keepdims=True)
+    # Deliberately asymmetric: a symmetric matrix hides an orientation error.
+    costs = np.array([[0.0, 2.0, 5.0], [1.0, 0.0, 3.0], [4.0, 1.0, 0.0]])
+
+    def decide(matrix):
+        return np.asarray(optimize_decisions(probs, matrix).predict(probs)).astype(int)
+
+    return probs, costs, decide
+
+
+@pytest.mark.parametrize("row", [0, 1, 2])
+def test_shifting_a_cost_row_cannot_change_any_decision(row, multiclass_problem):
+    """The identity that settles the orientation without appealing to the docs.
+
+    Expected cost of decision j is Σ_i p_i C(i, j). Adding c to row i adds
+    Σ_i p_i c_i to *every* j, so the argmin cannot move. Under a transposed
+    reading the shift lands on one decision instead, and it does move -- 9, 78
+    and 63 of 150 decisions changed for rows 0, 1 and 2 respectively.
+    """
+    _, costs, decide = multiclass_problem
+    base = decide(costs)
+    shifted = costs.copy()
+    shifted[row, :] += 10.0
+    assert np.array_equal(decide(shifted), base)
+
+
+@pytest.mark.parametrize("factor", [0.01, 3.0, 1000.0])
+def test_scaling_the_cost_matrix_cannot_change_any_decision(factor, multiclass_problem):
+    _, costs, decide = multiclass_problem
+    assert np.array_equal(decide(costs * factor), decide(costs))
+
+
+def test_permuting_decision_columns_permutes_the_decisions(multiclass_problem):
+    _, costs, decide = multiclass_problem
+    order = np.array([2, 0, 1])
+    relabelled = decide(costs[:, order])
+    assert np.array_equal(order[relabelled], decide(costs))
+
+
+def test_equal_off_diagonal_costs_reduce_to_argmax(multiclass_problem):
+    """With every error equally bad, the Bayes rule is just the most likely class."""
+    probs, _, decide = multiclass_problem
+    uniform = np.full((3, 3), 1.0)
+    np.fill_diagonal(uniform, 0.0)
+    assert np.array_equal(decide(uniform), probs.argmax(axis=1))

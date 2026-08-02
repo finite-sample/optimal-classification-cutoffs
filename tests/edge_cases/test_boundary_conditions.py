@@ -35,7 +35,10 @@ class TestLabelDistributionEdgeCases:
 
         # Accuracy should be reasonable (allow for optimization challenges in degenerate cases)
         score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
-        assert score >= 0.5  # At least better than random
+        # Every label is the same class, so predicting that class for everything is
+        # perfect: accuracy 1.0 is achievable and anything less means the optimizer
+        # missed it. The old bound of 0.5 tolerated getting half the points wrong.
+        assert score == pytest.approx(1.0)
 
     def test_all_negative_labels(self):
         """Test optimization when all labels are negative."""
@@ -49,7 +52,10 @@ class TestLabelDistributionEdgeCases:
 
         # Accuracy should be reasonable (allow for optimization challenges in degenerate cases)
         score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
-        assert score >= 0.5  # At least better than random
+        # Every label is the same class, so predicting that class for everything is
+        # perfect: accuracy 1.0 is achievable and anything less means the optimizer
+        # missed it. The old bound of 0.5 tolerated getting half the points wrong.
+        assert score == pytest.approx(1.0)
 
     def test_single_positive_sample(self):
         """Test optimization with only one positive sample."""
@@ -177,7 +183,10 @@ class TestDegenrateCaseHandling:
 
         # Should perform reasonably well (allow for optimization challenges)
         score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
-        assert score >= 0.5  # At least better than random
+        # Every label is the same class, so predicting that class for everything is
+        # perfect: accuracy 1.0 is achievable and anything less means the optimizer
+        # missed it. The old bound of 0.5 tolerated getting half the points wrong.
+        assert score == pytest.approx(1.0)
 
     def test_no_negative_predictions_possible(self):
         """Test case where optimal solution is to predict all positive."""
@@ -191,7 +200,10 @@ class TestDegenrateCaseHandling:
 
         # Should perform reasonably well (allow for optimization challenges)
         score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
-        assert score >= 0.5  # At least better than random
+        # Every label is the same class, so predicting that class for everything is
+        # perfect: accuracy 1.0 is achievable and anything less means the optimizer
+        # missed it. The old bound of 0.5 tolerated getting half the points wrong.
+        assert score == pytest.approx(1.0)
 
     def test_undefined_metric_cases(self):
         """Test cases where metrics might be undefined."""
