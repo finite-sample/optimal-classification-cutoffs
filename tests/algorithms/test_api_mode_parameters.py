@@ -241,13 +241,19 @@ class TestGoldenTests:
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
         utility = {"tp": 2, "tn": 1, "fp": -1, "fn": -5}
 
-        # Direct call to Bayes function (use negative costs to match utility convention)
-        result1 = bayes_threshold(cost_fp=1, cost_fn=5)
+        # Direct call to Bayes function. All four utility terms must be supplied: the
+        # closed form tau* = (u_tn - u_fp) / [(u_tp - u_fn) + (u_tn - u_fp)] depends on
+        # tp and tn as well as fp and fn.
+        result1 = bayes_threshold(
+            cost_fp=1, cost_fn=5, benefit_tp=utility["tp"], benefit_tn=utility["tn"]
+        )
 
         # Via optimize_thresholds API
         result2 = optimize_thresholds(None, y_prob, utility=utility, mode="bayes")
 
         assert abs(result1 - result2.threshold) < 1e-12
+        # (u_tn - u_fp) / [(u_tp - u_fn) + (u_tn - u_fp)] = 2 / (7 + 2) = 2/9
+        assert abs(result2.threshold - 2 / 9) < 1e-12
 
     def test_method_consistency(self):
         """Test that methods give consistent results."""

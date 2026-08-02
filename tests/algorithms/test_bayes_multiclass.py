@@ -24,8 +24,15 @@ class TestBayesDecisionFromUtilityMatrix:
     def test_with_abstain_option(self):
         """Test classification with abstain option."""
         y_prob = np.array([[0.4, 0.3, 0.3], [0.1, 0.8, 0.1]])
-        # Identity matrix plus abstain row with moderate utility
-        U = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [0.6, 0.6, 0.6]])
+        # Matrices are (n_classes, n_actions): U[i, j] = utility of action j when the
+        # true class is i. Actions 0-2 are the class predictions, action 3 is abstain.
+        U = np.array(
+            [
+                [1, 0, 0, 0.6],
+                [0, 1, 0, 0.6],
+                [0, 0, 1, 0.6],
+            ]
+        )
 
         result = optimize_decisions(y_prob, cost_matrix=-U)  # Negate for cost matrix
         decisions = result.predict(y_prob)
@@ -268,8 +275,9 @@ class TestBayesEdgeCases:
         with pytest.raises(ValueError, match="utility_matrix must be 2D array"):
             optimize_decisions(P, cost_matrix=-U_1d)
 
-        # Test mismatched shape
-        U_wrong = np.array([[1, 0, 0], [0, 1, 0]])  # 3 classes but P has 2
+        # Test mismatched shape. Matrices are (n_classes, n_actions), so a 3-row
+        # matrix declares 3 true classes while P supplies only 2.
+        U_wrong = np.array([[1, 0], [0, 1], [0, 0]])  # 3 classes but P has 2
         with pytest.raises(
             ValueError, match="probabilities has 2 classes but utility_matrix has 3"
         ):

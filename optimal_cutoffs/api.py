@@ -404,7 +404,9 @@ def _optimize_binary(
         from .bayes import threshold as bayes_threshold
         from .core import OptimizationResult, Task
 
-        # Extract costs from utility dictionary
+        # Extract costs/benefits from utility dictionary. All four documented keys
+        # ("tp", "tn", "fp", "fn") enter the closed form
+        #   tau* = (u_tn - u_fp) / [(u_tp - u_fn) + (u_tn - u_fp)]
         util = utility or {}
         cost_fp = -util.get(
             "fp", 0
@@ -412,9 +414,16 @@ def _optimize_binary(
         cost_fn = -util.get(
             "fn", 0
         )  # Convert from utility (negative cost) to positive cost
+        benefit_tp = util.get("tp", 0)
+        benefit_tn = util.get("tn", 0)
 
         # Compute Bayes optimal threshold
-        optimal_thresh = bayes_threshold(cost_fp=cost_fp, cost_fn=cost_fn)
+        optimal_thresh = bayes_threshold(
+            cost_fp=cost_fp,
+            cost_fn=cost_fn,
+            benefit_tp=benefit_tp,
+            benefit_tn=benefit_tn,
+        )
 
         # Return OptimizationResult format
         def predict_fn(scores):
