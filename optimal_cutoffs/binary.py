@@ -153,8 +153,8 @@ def optimize_utility_binary(
     >>> # FN costs 5x more than FP
     >>> utility = {"tp": 10, "tn": 1, "fp": -1, "fn": -5}
     >>> result = optimize_utility_binary(None, y_score, utility=utility)
-    >>> result.threshold  # Closed-form optimal
-    0.167
+    >>> result.threshold  # (u_tn - u_fp) / [(u_tp - u_fn) + (u_tn - u_fp)] = 2/17
+    0.11764705882352941
     """
     from .bayes import BayesOptimal, UtilitySpec
 

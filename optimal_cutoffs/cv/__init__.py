@@ -106,15 +106,33 @@ def cross_validate(
             result.threshold if result.task == Task.BINARY else result.thresholds
         )
 
-        # Evaluate on test set
-        test_result = optimize_thresholds(
-            y_test, score_test, metric=metric, **test_kwargs
-        )
-        score = (
-            test_result.score
-            if test_result.task == Task.BINARY
-            else np.mean(test_result.scores)
-        )
+        # Evaluate the training-fold threshold on the held-out fold. Re-optimising on
+        # the test fold would report that fold's own maximum, which is an optimistically
+        # biased estimate rather than a cross-validated one.
+        comparison = test_kwargs.get("comparison", ">")
+        test_weight = test_kwargs.get("sample_weight")
+        if result.task == Task.BINARY:
+            from ..metrics_core import compute_metric_at_threshold
+
+            score = compute_metric_at_threshold(
+                y_test,
+                score_test,
+                float(threshold),
+                metric=metric,
+                sample_weight=test_weight,
+                comparison=comparison,
+            )
+        else:
+            from ..metrics_core import multiclass_metric_single_label
+
+            score = multiclass_metric_single_label(
+                y_test,
+                score_test,
+                np.asarray(threshold),
+                metric,
+                comparison=comparison,
+                sample_weight=test_weight,
+            )
 
         thresholds.append(threshold)
         scores.append(score)

@@ -180,7 +180,12 @@ def select_method_with_explanation(
 
     match task:
         case Task.BINARY:
-            if metric in ["f1", "precision", "recall"]:
+            # sort_scan is exact for any metric that is piecewise-constant in the
+            # threshold and has a vectorized implementation. Consult the registry
+            # rather than a hardcoded list so custom metrics benefit too.
+            from .metrics_core import has_vectorized_implementation, is_piecewise_metric
+
+            if is_piecewise_metric(metric) and has_vectorized_implementation(metric):
                 notes.append(f"Using O(n log n) exact optimization for {metric}")
                 return "sort_scan", notes
             else:

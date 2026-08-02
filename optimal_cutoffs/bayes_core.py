@@ -381,11 +381,11 @@ def bayes_optimal_decisions(
     ----------
     probabilities : array of shape (n_samples, n_classes)
         Class probabilities (must be calibrated)
-    utility_matrix : array of shape (n_decisions, n_classes), optional
-        Utility matrix U[d,y] = utility(decision=d, true=y).
+    utility_matrix : array of shape (n_classes, n_decisions), optional
+        Utility matrix U[i,j] = utility(true class=i, decision=j).
         Higher values = better outcomes.
-    cost_matrix : array of shape (n_decisions, n_classes), optional
-        Cost matrix C[d,y] = cost(decision=d, true=y).
+    cost_matrix : array of shape (n_classes, n_decisions), optional
+        Cost matrix C[i,j] = cost of taking decision j when the true class is i.
         Lower values = better outcomes.
 
     Returns
@@ -437,8 +437,8 @@ def bayes_optimal_decisions(
     if utility.ndim != 2:
         raise ValueError("utility_matrix must be 2D array")
 
-    n_decisions = utility.shape[0]
-    n_classes = utility.shape[1]
+    n_classes = utility.shape[0]
+    n_decisions = utility.shape[1]
 
     # Handle case when probabilities are provided vs not
     if probabilities is not None:
@@ -452,9 +452,9 @@ def bayes_optimal_decisions(
                 f"utility_matrix has {n_classes}"
             )
 
-        # Compute expected utilities/costs: E[U|x] = Σ_y U(d,y) P(y|x)
+        # Compute expected utilities/costs: E[U|x, j] = Σ_i P(i|x) U(i, j)
         expected = (
-            probs @ utility.T
+            probs @ utility
         )  # (n_samples, n_classes) @ (n_classes, n_decisions) -> (n_samples, n_decisions)
 
         # Always maximize utility (whether provided directly or converted from costs)
@@ -473,7 +473,7 @@ def bayes_optimal_decisions(
             raise ValueError(f"Expected {n_classes} classes, got {p.shape[1]}")
 
         # Compute expected utilities and return optimal decisions (always maximize utility)
-        expected_new = p @ utility.T
+        expected_new = p @ utility
         return np.argmax(expected_new, axis=1).astype(np.int32)
 
     # For utility-based decisions, we don't have traditional "thresholds",

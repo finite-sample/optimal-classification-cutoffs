@@ -96,8 +96,22 @@ class TestExplainableAutoSelection:
         assert result.method == "sort_scan"
         assert any("O(n log n)" in note for note in result.notes)
 
-        # Accuracy should trigger minimize method
+        # Accuracy is also piecewise-constant with a vectorized implementation, so it
+        # gets the exact O(n log n) optimizer too.
         result = optimize_thresholds(y_true, y_score, method="auto", metric="accuracy")
+        assert result.method == "sort_scan"
+        assert any("O(n log n)" in note for note in result.notes)
+
+        # A metric registered without a piecewise/vectorized implementation falls back
+        # to scipy minimisation.
+        from optimal_cutoffs import metrics
+
+        metrics.register(
+            "_nonpiecewise_probe", lambda tp, tn, fp, fn: tp / (tp + fp + fn + 1e-9)
+        )
+        result = optimize_thresholds(
+            y_true, y_score, method="auto", metric="_nonpiecewise_probe"
+        )
         assert result.method == "minimize"
         assert any("scipy" in note for note in result.notes)
 

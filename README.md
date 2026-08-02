@@ -119,8 +119,8 @@ from optimal_cutoffs import metrics, bayes, cv, algorithms
 custom_f2 = lambda tp, tn, fp, fn: (5*tp) / (5*tp + 4*fn + fp)
 metrics.register("f2", custom_f2)
 
-# Cross-validation with threshold tuning
-thresholds = cv.cross_validate(model, X, y, metric="f1")
+# Cross-validation with threshold tuning (operates on labels and scores)
+thresholds, scores = cv.cross_validate(y_true, y_scores, metric="f1")
 
 # Advanced algorithms
 result = algorithms.multiclass.coordinate_ascent(y_true, y_scores)
@@ -219,12 +219,13 @@ print(f"Improvement: {improvement:+.1f}%")  # ~+40%
 ```python
 from optimal_cutoffs import cv
 
-# Cross-validation for threshold selection
-scores = cv.cross_validate(
-    model, X, y,
+# Cross-validation for threshold selection.
+# Returns (thresholds, scores): the threshold chosen on each fold's training part
+# and the metric it achieved on that fold's held-out part.
+thresholds, scores = cv.cross_validate(
+    y_true, y_scores,
     metric="f1",
     cv=5,
-    return_thresholds=True
 )
 ```
 
