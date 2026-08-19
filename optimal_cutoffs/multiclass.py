@@ -14,11 +14,15 @@ coordinate ascent for general metrics like F1.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-from numpy.typing import ArrayLike
 
 from .core import OptimizationResult, Task
 from .validation import validate_multiclass_classification
+
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike
 
 
 def optimize_ovr_independent(
@@ -40,34 +44,23 @@ def optimize_ovr_independent(
 
     Decision rule: ŷ_j = 1 if p_j ≥ τ_j (independent for each class)
 
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples,)
-        True class labels in {0, 1, ..., K-1}
-    y_score : array-like of shape (n_samples, n_classes)
-        Predicted probabilities for each class
-    metric : str, default="f1"
-        Metric to optimize per class
-    method : str, default="auto"
-        Binary optimization method
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : str, default=">"
-        Comparison operator
-    tolerance : float, default=1e-10
-        Numerical tolerance
+    Args:
+        y_true: True class labels in {0, 1, ..., K-1}. Shape: (n_samples,).
+        y_score: Predicted probabilities for each class. Shape: (n_samples, n_classes).
+        metric: Metric to optimize per class. Defaults to "f1".
+        method: Binary optimization method. Defaults to "auto".
+        sample_weight: Sample weights. Shape: (n_samples,). Optional.
+        comparison: Comparison operator. Defaults to ">".
+        tolerance: Numerical tolerance. Defaults to 1e-10.
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with per-class thresholds optimized independently
 
-    Examples
-    --------
-    >>> y_true = [0, 1, 2, 0, 1]
-    >>> y_score = [[0.7, 0.2, 0.1], [0.1, 0.8, 0.1], [0.1, 0.1, 0.8], ...]
-    >>> result = optimize_ovr_independent(y_true, y_score, metric="f1")
-    >>> predictions = result.predict(y_score)  # Can predict multiple classes
+    Examples:
+        >>> y_true = [0, 1, 2, 0, 1]
+        >>> y_score = [[0.7, 0.2, 0.1], [0.1, 0.8, 0.1], [0.1, 0.1, 0.8], ...]
+        >>> result = optimize_ovr_independent(y_true, y_score, metric="f1")
+        >>> predictions = result.predict(y_score)  # Can predict multiple classes
     """
     from .binary import optimize_metric_binary
 
@@ -76,7 +69,7 @@ def optimize_ovr_independent(
         y_true, y_score, sample_weight, require_proba=True
     )
 
-    n_samples, n_classes = y_score.shape
+    _n_samples, n_classes = y_score.shape
 
     # Optimize each class vs rest independently
     optimal_thresholds = np.zeros(n_classes, dtype=np.float64)
@@ -143,39 +136,31 @@ def optimize_ovr_margin(
     assigned to class j, which affects confusion matrices for all classes.
     Uses coordinate ascent to find local optimum.
 
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples,)
-        True class labels in {0, 1, ..., K-1}
-    y_score : array-like of shape (n_samples, n_classes)
-        Predicted probabilities for each class
-    metric : str, default="f1"
-        Metric to optimize (currently supports "f1" only)
-    max_iter : int, default=30
-        Maximum coordinate ascent iterations
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : str, default=">"
-        Comparison operator (only ">" supported for margin rule)
-    tolerance : float, default=1e-12
-        Convergence tolerance
+    Args:
+        y_true: True class labels in {0, 1, ..., K-1}. Shape: (n_samples,).
+        y_score: Predicted probabilities for each class. Shape: (n_samples, n_classes).
+        metric: Metric to optimize (currently supports "f1" only). Defaults to "f1".
+        max_iter: Maximum coordinate ascent iterations. Defaults to 30.
+        sample_weight: Sample weights. Shape: (n_samples,). Optional.
+        comparison: Comparison operator (only ">" supported for margin rule). Defaults
+            to ">".
+        tolerance: Convergence tolerance. Defaults to 1e-12.
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with per-class thresholds optimized via coordinate ascent
 
-    Examples
-    --------
-    >>> result = optimize_ovr_margin(y_true, y_score, metric="f1")
-    >>> predictions = result.predict(y_score)  # Exactly one class per sample
+    Raises:
+        NotImplementedError: If `metric` is not "f1" or `comparison` is not ">".
 
-    Notes
-    -----
-    The margin rule is Bayes-optimal when costs have OvR structure:
-    C(i,j) = -r_j if i=j, else c_j
+    Examples:
+        >>> result = optimize_ovr_margin(y_true, y_score, metric="f1")
+        >>> predictions = result.predict(y_score)  # Exactly one class per sample
 
-    In this case, optimal thresholds are: τ_j = c_j/(c_j + r_j) (closed form!)
+    Notes:
+        The margin rule is Bayes-optimal when costs have OvR structure:
+        C(i,j) = -r_j if i=j, else c_j
+
+        In this case, optimal thresholds are: τ_j = c_j/(c_j + r_j) (closed form!)
     """
     from .optimize import coordinate_ascent_kernel
 
@@ -201,7 +186,7 @@ def optimize_ovr_margin(
     weights = get_sample_weights(sample_weight, n_samples)
 
     # Run coordinate ascent
-    thresholds, best_score, history = coordinate_ascent_kernel(
+    thresholds, best_score, _history = coordinate_ascent_kernel(
         y_true_int32,
         y_score_float64,
         weights,
@@ -239,33 +224,22 @@ def optimize_micro_multiclass(
 
     Decision rule: ŷ = argmax{j: p_j ≥ τ} p_j (or argmax p_j if none valid)
 
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples,)
-        True class labels in {0, 1, ..., K-1}
-    y_score : array-like of shape (n_samples, n_classes)
-        Predicted probabilities for each class
-    metric : str, default="f1"
-        Metric to optimize
-    method : str, default="auto"
-        Binary optimization method
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : str, default=">"
-        Comparison operator
-    tolerance : float, default=1e-10
-        Numerical tolerance
+    Args:
+        y_true: True class labels in {0, 1, ..., K-1}. Shape: (n_samples,).
+        y_score: Predicted probabilities for each class. Shape: (n_samples, n_classes).
+        metric: Metric to optimize. Defaults to "f1".
+        method: Binary optimization method. Defaults to "auto".
+        sample_weight: Sample weights. Shape: (n_samples,). Optional.
+        comparison: Comparison operator. Defaults to ">".
+        tolerance: Numerical tolerance. Defaults to 1e-10.
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with single threshold applied to all classes
 
-    Examples
-    --------
-    >>> result = optimize_micro_multiclass(y_true, y_score, metric="f1")
-    >>> result.thresholds  # Same threshold for all classes
-    [0.3, 0.3, 0.3]
+    Examples:
+        >>> result = optimize_micro_multiclass(y_true, y_score, metric="f1")
+        >>> result.thresholds  # Same threshold for all classes
+        [0.3, 0.3, 0.3]
     """
     from .binary import optimize_metric_binary
 
@@ -336,43 +310,34 @@ def optimize_multiclass(
     - Macro + independent: Independent OvR optimization (can predict multiple)
     - Micro: Single threshold optimization (single-label)
 
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples,)
-        True class labels in {0, 1, ..., K-1}
-    y_score : array-like of shape (n_samples, n_classes)
-        Predicted probabilities for each class
-    metric : str, default="f1"
-        Metric to optimize
-    average : {"macro", "micro"}, default="macro"
-        Averaging strategy
-    method : {"auto", "coord_ascent", "independent"}, default="auto"
-        Optimization method:
-        - "auto": For macro, uses coord_ascent (margin rule)
-        - "coord_ascent": Margin rule with coordinate ascent
-        - "independent": Independent per-class optimization (OvR)
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : str, default=">"
-        Comparison operator
-    tolerance : float, default=1e-10
-        Numerical tolerance
+    Args:
+        y_true: True class labels in {0, 1, ..., K-1}. Shape: (n_samples,).
+        y_score: Predicted probabilities for each class. Shape: (n_samples, n_classes).
+        metric: Metric to optimize. Defaults to "f1".
+        average: Averaging strategy. One of {"macro", "micro"}. Defaults to "macro".
+        method: Optimization method, defaults to "auto":
+            - "auto": For macro, uses coord_ascent (margin rule)
+            - "coord_ascent": Margin rule with coordinate ascent
+            - "independent": Independent per-class optimization (OvR)
+        sample_weight: Sample weights. Shape: (n_samples,). Optional.
+        comparison: Comparison operator. Defaults to ">".
+        tolerance: Numerical tolerance. Defaults to 1e-10.
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with optimal thresholds and prediction function
 
-    Examples
-    --------
-    >>> # Margin rule (single-label, coordinate ascent)
-    >>> result = optimize_multiclass(y_true, y_score, method="coord_ascent")
-    >>>
-    >>> # Independent optimization (can predict multiple classes)
-    >>> result = optimize_multiclass(y_true, y_score, method="independent")
-    >>>
-    >>> # Micro averaging (single threshold)
-    >>> result = optimize_multiclass(y_true, y_score, average="micro")
+    Raises:
+        ValueError: If `average` or `method` is not one of the supported values.
+
+    Examples:
+        >>> # Margin rule (single-label, coordinate ascent)
+        >>> result = optimize_multiclass(y_true, y_score, method="coord_ascent")
+        >>>
+        >>> # Independent optimization (can predict multiple classes)
+        >>> result = optimize_multiclass(y_true, y_score, method="independent")
+        >>>
+        >>> # Micro averaging (single threshold)
+        >>> result = optimize_multiclass(y_true, y_score, average="micro")
     """
     match average:
         case "micro":
@@ -388,9 +353,11 @@ def optimize_multiclass(
         case "macro":
             match method:
                 case "auto":
-                    # Auto method: choose best method based on metric and comparison compatibility
+                    # Auto method: choose best method based on metric and comparison
+                    # compatibility
                     if metric == "f1" and comparison == ">":
-                        # F1 with ">" is supported by coordinate ascent - use it for better coupling
+                        # F1 with ">" is supported by coordinate ascent - use it for
+                        # better coupling
                         return optimize_ovr_margin(
                             y_true,
                             y_score,
@@ -400,17 +367,17 @@ def optimize_multiclass(
                             comparison=comparison,
                             tolerance=tolerance,
                         )
-                    else:
-                        # Other metrics/comparisons not supported by coord_ascent - use independent
-                        return optimize_ovr_independent(
-                            y_true,
-                            y_score,
-                            metric=metric,
-                            method="auto",
-                            sample_weight=sample_weight,
-                            comparison=comparison,
-                            tolerance=tolerance,
-                        )
+                    # Other metrics/comparisons not supported by coord_ascent - use
+                    # independent
+                    return optimize_ovr_independent(
+                        y_true,
+                        y_score,
+                        metric=metric,
+                        method="auto",
+                        sample_weight=sample_weight,
+                        comparison=comparison,
+                        tolerance=tolerance,
+                    )
                 case "coord_ascent":
                     return optimize_ovr_margin(
                         y_true,
@@ -423,7 +390,8 @@ def optimize_multiclass(
                     )
                 case "independent" | "minimize" | "unique_scan" | "gradient":
                     # Route legacy and scipy methods to independent optimization
-                    # minimize, unique_scan, gradient are legacy binary methods - use independent for multiclass
+                    # minimize, unique_scan, gradient are legacy binary methods - use
+                    # independent for multiclass
                     return optimize_ovr_independent(
                         y_true,
                         y_score,
@@ -440,8 +408,8 @@ def optimize_multiclass(
 
 
 __all__ = [
-    "optimize_ovr_independent",
-    "optimize_ovr_margin",
     "optimize_micro_multiclass",
     "optimize_multiclass",
+    "optimize_ovr_independent",
+    "optimize_ovr_margin",
 ]

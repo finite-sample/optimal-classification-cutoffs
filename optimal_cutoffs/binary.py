@@ -13,11 +13,15 @@ All functions assume calibrated probabilities: E[y|p] = p
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-from numpy.typing import ArrayLike
 
 from .core import OptimizationResult, Task
 from .validation import validate_binary_classification
+
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike
 
 
 def optimize_f1_binary(
@@ -33,33 +37,25 @@ def optimize_f1_binary(
     Uses the O(n log n) sort-and-scan algorithm exploiting the piecewise
     structure of F-beta metrics. This finds the exact optimal threshold.
 
-    Parameters
-    ----------
-    y_true
-        True binary labels in {0, 1}. Shape: (n_samples,)
-    y_score
-        Predicted probabilities for positive class in [0, 1]. Shape: (n_samples,)
-    beta
-        F-beta parameter. beta=1 gives F1 score
-    sample_weight
-        Sample weights. Shape: (n_samples,)
-    comparison
-        Comparison operator for threshold. Must be ">" or ">="
+    Args:
+        y_true: True binary labels in {0, 1}. Shape: (n_samples,)
+        y_score: Predicted probabilities for positive class in [0, 1]. Shape:
+            (n_samples,)
+        beta: F-beta parameter. beta=1 gives F1 score
+        sample_weight: Sample weights. Shape: (n_samples,)
+        comparison: Comparison operator for threshold. Must be ">" or ">="
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with optimal threshold, F-beta score, and predict function
 
-    Examples
-    --------
-    >>> y_true = [0, 1, 1, 0, 1]
-    >>> y_score = [0.2, 0.8, 0.7, 0.3, 0.9]
-    >>> result = optimize_f1_binary(y_true, y_score)
-    >>> result.threshold
-    0.5
-    >>> result.score  # F1 score at optimal threshold
-    0.8
+    Examples:
+        >>> y_true = [0, 1, 1, 0, 1]
+        >>> y_score = [0.2, 0.8, 0.7, 0.3, 0.9]
+        >>> result = optimize_f1_binary(y_true, y_score)
+        >>> result.threshold
+        0.5
+        >>> result.score  # F1 score at optimal threshold
+        0.8
     """
     # Import here to avoid circular imports
     from .piecewise import optimal_threshold_sortscan
@@ -127,34 +123,28 @@ def optimize_utility_binary(
 
     This is exact and runs in O(1) time.
 
-    Parameters
-    ----------
-    y_true
-        True binary labels. Can be None for pure Bayes optimization. Shape: (n_samples,)
-    y_score
-        Predicted probabilities for positive class in [0, 1]. Shape: (n_samples,)
-    utility
-        Utility specification with keys "tp", "tn", "fp", "fn"
-    sample_weight
-        Sample weights (affects expected utility computation). Shape: (n_samples,)
+    Args:
+        y_true: True binary labels. Can be None for pure Bayes optimization. Shape:
+            (n_samples,)
+        y_score: Predicted probabilities for positive class in [0, 1]. Shape:
+            (n_samples,)
+        utility: Utility specification with keys "tp", "tn", "fp", "fn"
+        sample_weight: Sample weights (affects expected utility computation). Shape:
+            (n_samples,)
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with optimal threshold, expected utility, and predict function
 
-    Raises
-    ------
-    ValueError
-        If probabilities are not in the range [0, 1] for utility optimization.
+    Raises:
+        ValueError: If probabilities are not in the range [0, 1] for utility
+            optimization.
 
-    Examples
-    --------
-    >>> # FN costs 5x more than FP
-    >>> utility = {"tp": 10, "tn": 1, "fp": -1, "fn": -5}
-    >>> result = optimize_utility_binary(None, y_score, utility=utility)
-    >>> result.threshold  # (u_tn - u_fp) / [(u_tp - u_fn) + (u_tn - u_fp)] = 2/17
-    0.11764705882352941
+    Examples:
+        >>> # FN costs 5x more than FP
+        >>> utility = {"tp": 10, "tn": 1, "fp": -1, "fn": -5}
+        >>> result = optimize_utility_binary(None, y_score, utility=utility)
+        >>> result.threshold  # (u_tn - u_fp) / [(u_tp - u_fn) + (u_tn - u_fp)] = 2/17
+        0.11764705882352941
     """
     from .bayes import BayesOptimal, UtilitySpec
 
@@ -205,41 +195,31 @@ def optimize_metric_binary(
     Automatically selects the best optimization algorithm based on metric
     properties and data characteristics.
 
-    Parameters
-    ----------
-    y_true
-        True binary labels in {0, 1}. Shape: (n_samples,)
-    y_score
-        Predicted probabilities for positive class in [0, 1]. Shape: (n_samples,)
-    metric
-        Metric to optimize ("f1", "precision", "recall", "accuracy", etc.)
-    method
-        Optimization method:
-        - "auto": Automatically select best method
-        - "sort_scan": O(n log n) sort-and-scan (exact for piecewise metrics)
-        - "minimize": Scipy optimization
-        - "gradient": Simple gradient ascent
-    sample_weight
-        Sample weights. Shape: (n_samples,)
-    comparison
-        Comparison operator for threshold. Must be ">" or ">="
-    tolerance
-        Numerical tolerance for optimization
+    Args:
+        y_true: True binary labels in {0, 1}. Shape: (n_samples,)
+        y_score: Predicted probabilities for positive class in [0, 1]. Shape:
+            (n_samples,)
+        metric: Metric to optimize ("f1", "precision", "recall", "accuracy", etc.)
+        method: Optimization method:
+            - "auto": Automatically select best method
+            - "sort_scan": O(n log n) sort-and-scan (exact for piecewise metrics)
+            - "minimize": Scipy optimization
+            - "gradient": Simple gradient ascent
+        sample_weight: Sample weights. Shape: (n_samples,)
+        comparison: Comparison operator for threshold. Must be ">" or ">="
+        tolerance: Numerical tolerance for optimization
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with optimal threshold, metric score, and predict function
 
-    Raises
-    ------
-    ValueError
-        If method is unknown or not supported.
+    Raises:
+        ValueError: If method is unknown or not supported.
 
-    Examples
-    --------
-    >>> result = optimize_metric_binary(y_true, y_score, metric="precision")
-    >>> result = optimize_metric_binary(y_true, y_score, metric="f1", method="sort_scan")
+    Examples:
+        >>> result = optimize_metric_binary(y_true, y_score, metric="precision")
+        >>> result = optimize_metric_binary(
+        ...     y_true, y_score, metric="f1", method="sort_scan"
+        ... )
     """
     from .metrics_core import is_piecewise_metric
     from .optimize import optimize_gradient, optimize_scipy
@@ -301,6 +281,6 @@ def optimize_metric_binary(
 
 __all__ = [
     "optimize_f1_binary",
-    "optimize_utility_binary",
     "optimize_metric_binary",
+    "optimize_utility_binary",
 ]

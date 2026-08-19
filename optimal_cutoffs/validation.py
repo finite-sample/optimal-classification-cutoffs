@@ -15,21 +15,16 @@ logger = logging.getLogger(__name__)
 def validate_binary_labels(labels: ArrayLike) -> NDArray[np.int8]:
     """Validate and return binary labels as int8 array.
 
-    Parameters
-    ----------
-    labels
-        Input labels in {0, 1}
+    Args:
+        labels: Input labels in {0, 1}
 
-    Returns
-    -------
-    NDArray[np.int8]
+    Returns:
         Validated binary labels
 
-    Raises
-    ------
-    ValueError
-        If labels are not binary or array is invalid, contain NaN/inf values,
-        or cannot be converted to int8
+    Raises:
+        ValueError: If labels are not binary or array is invalid, contain NaN/inf
+            values,
+            or cannot be converted to int8
     """
     # Handle None input gracefully
     if labels is None:
@@ -74,22 +69,15 @@ def validate_multiclass_labels(
 ) -> NDArray[np.int32]:
     """Validate and return multiclass labels as int32 array.
 
-    Parameters
-    ----------
-    labels
-        Input labels (non-negative integers)
-    n_classes
-        If provided, validate that labels are in [0, n_classes)
+    Args:
+        labels: Input labels (non-negative integers)
+        n_classes: If provided, validate that labels are in [0, n_classes)
 
-    Returns
-    -------
-    NDArray[np.int32]
+    Returns:
         Validated labels
 
-    Raises
-    ------
-    ValueError
-        If labels are invalid
+    Raises:
+        ValueError: If labels are invalid
     """
     arr = np.asarray(labels, dtype=np.int32)
 
@@ -119,24 +107,16 @@ def validate_probabilities(
 ) -> NDArray[np.float64]:
     """Validate and return probabilities or scores as float64 array.
 
-    Parameters
-    ----------
-    probs
-        Probabilities or scores
-    binary
-        If True, require 1D array
-    require_proba
-        If True, enforce [0,1] range. If False, allow arbitrary scores.
+    Args:
+        probs: Probabilities or scores
+        binary: If True, require 1D array
+        require_proba: If True, enforce [0,1] range. If False, allow arbitrary scores.
 
-    Returns
-    -------
-    NDArray[np.float64]
+    Returns:
         Validated probabilities or scores
 
-    Raises
-    ------
-    ValueError
-        If probabilities/scores are invalid
+    Raises:
+        ValueError: If probabilities/scores are invalid
     """
     arr = np.asarray(probs, dtype=np.float64)
 
@@ -160,12 +140,11 @@ def validate_probabilities(
             raise ValueError(f"Probabilities must be 1D or 2D, got {arr.ndim}D")
 
     # Check range [0, 1] if probabilities are required
-    if require_proba:
-        if np.any(arr < 0) or np.any(arr > 1):
-            raise ValueError(
-                f"Probabilities must be in [0, 1], got range "
-                f"[{arr.min():.3f}, {arr.max():.3f}]"
-            )
+    if require_proba and (np.any(arr < 0) or np.any(arr > 1)):
+        raise ValueError(
+            f"Probabilities must be in [0, 1], got range "
+            f"[{arr.min():.3f}, {arr.max():.3f}]"
+        )
 
     # For multiclass, warn if rows don't sum to 1
     if arr.ndim == 2 and arr.shape[1] > 1:
@@ -183,22 +162,15 @@ def validate_probabilities(
 def validate_weights(weights: ArrayLike, n_samples: int) -> NDArray[np.float64]:
     """Validate and return sample weights as float64 array.
 
-    Parameters
-    ----------
-    weights
-        Sample weights (must be non-negative)
-    n_samples
-        Expected number of samples
+    Args:
+        weights: Sample weights (must be non-negative)
+        n_samples: Expected number of samples
 
-    Returns
-    -------
-    NDArray[np.float64]
+    Returns:
         Validated weights
 
-    Raises
-    ------
-    ValueError
-        If weights are invalid
+    Raises:
+        ValueError: If weights are invalid
     """
     arr = np.asarray(weights, dtype=np.float64)
 
@@ -232,25 +204,18 @@ def validate_threshold(
 ) -> NDArray[np.float64]:
     """Validate threshold value(s).
 
-    Parameters
-    ----------
-    threshold
-        Threshold(s) to validate
-    n_classes
-        For multiclass, expected number of thresholds
-    allow_epsilon_outside
-        If True, allow values slightly outside [0,1] by floating-point epsilon.
-        Used internally for thresholds that are nudged by nextafter().
+    Args:
+        threshold: Threshold(s) to validate
+        n_classes: For multiclass, expected number of thresholds
+        allow_epsilon_outside: If True, allow values slightly outside [0,1] by
+            floating-point epsilon.
+            Used internally for thresholds that are nudged by nextafter().
 
-    Returns
-    -------
-    NDArray[np.float64]
+    Returns:
         Validated threshold(s)
 
-    Raises
-    ------
-    ValueError
-        If thresholds are invalid
+    Raises:
+        ValueError: If thresholds are invalid
     """
     arr = np.atleast_1d(threshold).astype(np.float64)
 
@@ -294,19 +259,15 @@ def normalize_binary_probabilities(p: np.ndarray) -> np.ndarray:
     - (n, 2) array: returns p[:, 1] (positive class probability)
     - (n, 1) array: returns p.ravel()
 
-    Parameters
-    ----------
-    p
-        Input probabilities, already converted to numpy array
+    Args:
+        p: Input probabilities, already converted to numpy array
 
-    Returns
-    -------
-    np.ndarray
+    Returns:
         1D probability array
     """
     if p.ndim == 2 and p.shape[1] == 2:
         return p[:, 1]
-    elif p.ndim == 2 and p.shape[1] == 1:
+    if p.ndim == 2 and p.shape[1] == 1:
         return p.ravel()
     return p
 
@@ -316,18 +277,12 @@ def apply_threshold(
 ) -> np.ndarray:
     """Apply threshold with configurable comparison operator.
 
-    Parameters
-    ----------
-    values
-        Values to threshold
-    threshold
-        Threshold value(s)
-    comparison
-        Comparison operator (">" or ">=")
+    Args:
+        values: Values to threshold
+        threshold: Threshold value(s)
+        comparison: Comparison operator (">" or ">=")
 
-    Returns
-    -------
-    np.ndarray
+    Returns:
         Binary predictions (0 or 1) as int32
     """
     if comparison == ">=":
@@ -335,26 +290,18 @@ def apply_threshold(
     return (values > threshold).astype(np.int32)
 
 
-def get_sample_weights(sample_weight: np.ndarray | None, n_samples: int) -> np.ndarray:
+def get_sample_weights(sample_weight: ArrayLike | None, n_samples: int) -> np.ndarray:
     """Return sample weights, defaulting to uniform if None.
 
-    Parameters
-    ----------
-    sample_weight
-        Sample weights, or None for uniform weights
-    n_samples
-        Number of samples
+    Validation is delegated to `validate_weights`, whose ValueError (wrong
+    length, non-finite or negative entries) propagates unchanged.
 
-    Returns
-    -------
-    np.ndarray
+    Args:
+        sample_weight: Sample weights, or None for uniform weights
+        n_samples: Number of samples
+
+    Returns:
         Sample weights as float64 array
-
-    Raises
-    ------
-    ValueError
-        If sample_weight length doesn't match n_samples, contains invalid values,
-        or is otherwise invalid
     """
     if sample_weight is None:
         return np.ones(n_samples, dtype=np.float64)
@@ -371,18 +318,12 @@ def apply_thresholds_multiclass(
     Decision rule: predict the class with highest probability among those exceeding
     their threshold. Falls back to argmax when no class exceeds its threshold.
 
-    Parameters
-    ----------
-    probs
-        Probability matrix of shape (n_samples, n_classes)
-    thresholds
-        Per-class thresholds of shape (n_classes,)
-    comparison
-        Comparison operator (">" or ">=")
+    Args:
+        probs: Probability matrix of shape (n_samples, n_classes)
+        thresholds: Per-class thresholds of shape (n_classes,)
+        comparison: Comparison operator (">" or ">=")
 
-    Returns
-    -------
-    np.ndarray
+    Returns:
         Predicted class labels of shape (n_samples,) as int32
     """
     if comparison == ">=":
@@ -411,16 +352,11 @@ def make_binary_predictor(threshold: float, comparison: str = ">"):
     Creates a prediction function that applies the given threshold with
     the specified comparison operator.
 
-    Parameters
-    ----------
-    threshold
-        Decision threshold
-    comparison
-        Comparison operator (">" or ">=")
+    Args:
+        threshold: Decision threshold
+        comparison: Comparison operator (">" or ">=")
 
-    Returns
-    -------
-    callable
+    Returns:
         Function that takes probabilities and returns binary predictions
     """
 
@@ -437,16 +373,11 @@ def make_multiclass_predictor(thresholds: np.ndarray, comparison: str = ">"):
     Creates a prediction function that applies per-class thresholds with
     argmax fallback.
 
-    Parameters
-    ----------
-    thresholds
-        Per-class thresholds of shape (n_classes,)
-    comparison
-        Comparison operator (">" or ">=")
+    Args:
+        thresholds: Per-class thresholds of shape (n_classes,)
+        comparison: Comparison operator (">" or ">=")
 
-    Returns
-    -------
-    callable
+    Returns:
         Function that takes 2D probabilities and returns class predictions
     """
     thresholds_arr = np.asarray(thresholds, dtype=np.float64)
@@ -466,14 +397,10 @@ def make_margin_predictor(thresholds: np.ndarray):
     Creates a prediction function using the margin rule: argmax(p_j - τ_j).
     This ensures exactly one class is predicted per sample (single-label).
 
-    Parameters
-    ----------
-    thresholds
-        Per-class thresholds of shape (n_classes,)
+    Args:
+        thresholds: Per-class thresholds of shape (n_classes,)
 
-    Returns
-    -------
-    callable
+    Returns:
         Function that takes 2D probabilities and returns class predictions
     """
     thresholds_arr = np.asarray(thresholds, dtype=np.float64)
@@ -512,26 +439,17 @@ def validate_binary_classification(
 ) -> tuple[NDArray[np.int8], NDArray[np.float64], NDArray[np.float64] | None]:
     """Validate binary classification inputs.
 
-    Parameters
-    ----------
-    labels
-        Binary labels (0 or 1)
-    scores
-        Predicted scores/probabilities
-    weights
-        Sample weights
-    require_proba
-        If True, enforce [0,1] range. If False, allow arbitrary scores.
+    Args:
+        labels: Binary labels (0 or 1)
+        scores: Predicted scores/probabilities
+        weights: Sample weights
+        require_proba: If True, enforce [0,1] range. If False, allow arbitrary scores.
 
-    Returns
-    -------
-    tuple[NDArray[np.int8], NDArray[np.float64], NDArray[np.float64] | None]
+    Returns:
         (labels as int8, scores as float64, weights as float64 or None)
 
-    Raises
-    ------
-    ValueError
-        If inputs are invalid or shapes don't match
+    Raises:
+        ValueError: If inputs are invalid or shapes don't match
     """
     # Validate each component
     labels = validate_binary_labels(labels)
@@ -558,38 +476,25 @@ def validate_multiclass_classification(
 ) -> tuple[NDArray[np.int32], NDArray[np.float64], NDArray[np.float64] | None]:
     """Validate multiclass classification inputs.
 
-    Parameters
-    ----------
-    labels
-        True class labels (integers)
-    probabilities
-        Predicted probabilities (1D or 2D)
-    weights
-        Sample weights
-    require_proba
-        If True, enforce [0,1] range. If False, allow arbitrary scores.
+    Args:
+        labels: True class labels (integers)
+        probabilities: Predicted probabilities (1D or 2D)
+        weights: Sample weights
+        require_proba: If True, enforce [0,1] range. If False, allow arbitrary scores.
 
-    Returns
-    -------
-    tuple[NDArray[np.int32], NDArray[np.float64], NDArray[np.float64] | None]
+    Returns:
         (labels as int32, probabilities as float64, weights as float64 or None)
 
-    Raises
-    ------
-    ValueError
-        If inputs are invalid or shapes don't match
+    Raises:
+        ValueError: If inputs are invalid or shapes don't match
     """
     # Validate probabilities
     probs = validate_probabilities(
         probabilities, binary=False, require_proba=require_proba
     )
 
-    # Determine n_classes from probability matrix
-    if probs.ndim == 2:
-        n_classes = probs.shape[1]
-    else:
-        # 1D probabilities - treat as binary
-        n_classes = 2
+    # Determine n_classes from the probability matrix; 1D means binary.
+    n_classes = probs.shape[1] if probs.ndim == 2 else 2
 
     # Validate labels with n_classes constraint
     labels = validate_multiclass_labels(labels, n_classes)
@@ -600,7 +505,7 @@ def validate_multiclass_classification(
         raise ValueError(
             f"Shape mismatch: {n_samples} labels vs {probs.shape[0]} probability rows"
         )
-    elif probs.ndim == 1 and len(probs) != n_samples:
+    if probs.ndim == 1 and len(probs) != n_samples:
         raise ValueError(
             f"Length mismatch: {n_samples} labels vs {len(probs)} probabilities"
         )
@@ -619,20 +524,14 @@ def validate_multiclass_classification(
 def infer_problem_type(predictions: ArrayLike) -> str:
     """Infer whether this is binary or multiclass from predictions shape.
 
-    Parameters
-    ----------
-    predictions
-        Predicted probabilities
+    Args:
+        predictions: Predicted probabilities
 
-    Returns
-    -------
-    str
+    Returns:
         "binary" or "multiclass"
 
-    Raises
-    ------
-    ValueError
-        If shape is invalid
+    Raises:
+        ValueError: If shape is invalid
     """
     arr = np.asarray(predictions)
 
@@ -659,20 +558,13 @@ def validate_classification(
 ) -> tuple[NDArray, NDArray, NDArray | None, str]:
     """Validate any classification problem, automatically inferring the type.
 
-    Parameters
-    ----------
-    labels
-        True class labels
-    predictions
-        Predicted probabilities
-    weights
-        Sample weights
-    require_proba
-        If True, enforce [0,1] range. If False, allow arbitrary scores.
+    Args:
+        labels: True class labels
+        predictions: Predicted probabilities
+        weights: Sample weights
+        require_proba: If True, enforce [0,1] range. If False, allow arbitrary scores.
 
-    Returns
-    -------
-    tuple
+    Returns:
         (labels, predictions, weights, problem_type)
         where problem_type is "binary" or "multiclass"
     """
@@ -701,30 +593,19 @@ def validate_inputs(
 ) -> tuple[NDArray, NDArray, NDArray | None]:
     """Validate classification inputs with flexible type handling.
 
-    Parameters
-    ----------
-    labels
-        True class labels
-    predictions
-        Predicted scores/probabilities
-    weights
-        Sample weights
-    require_binary
-        If True, force binary classification validation
-    allow_multiclass
-        If False, raise error for multiclass inputs
-    require_proba
-        If True, enforce [0,1] range. If False, allow arbitrary scores.
+    Args:
+        labels: True class labels
+        predictions: Predicted scores/probabilities
+        weights: Sample weights
+        require_binary: If True, force binary classification validation
+        allow_multiclass: If False, raise error for multiclass inputs
+        require_proba: If True, enforce [0,1] range. If False, allow arbitrary scores.
 
-    Returns
-    -------
-    tuple
+    Returns:
         (labels, predictions, weights) validated and converted
 
-    Raises
-    ------
-    ValueError
-        If inputs are invalid or multiclass when not allowed
+    Raises:
+        ValueError: If inputs are invalid or multiclass when not allowed
     """
     if require_binary:
         return validate_binary_classification(
@@ -739,16 +620,15 @@ def validate_inputs(
         return validate_binary_classification(
             labels, predictions, weights, require_proba=require_proba
         )
-    elif pred_arr.ndim == 2 and allow_multiclass:
+    if pred_arr.ndim == 2 and allow_multiclass:
         # Multiclass case
         return validate_multiclass_classification(
             labels, predictions, weights, require_proba=require_proba
         )
-    else:
-        raise ValueError(
-            f"Invalid prediction array shape: {pred_arr.shape}. "
-            f"Multiclass allowed: {allow_multiclass}"
-        )
+    raise ValueError(
+        f"Invalid prediction array shape: {pred_arr.shape}. "
+        f"Multiclass allowed: {allow_multiclass}"
+    )
 
 
 # ============================================================================
@@ -759,24 +639,16 @@ def validate_inputs(
 def validate_choice(value: str, choices: set[str], name: str) -> str:
     """Validate that a string is in a set of valid choices.
 
-    Parameters
-    ----------
-    value
-        Value to validate
-    choices
-        Valid choices
-    name
-        Name of the parameter (for error message)
+    Args:
+        value: Value to validate
+        choices: Valid choices
+        name: Name of the parameter (for error message)
 
-    Returns
-    -------
-    str
+    Returns:
         The validated value
 
-    Raises
-    ------
-    ValueError
-        If value is not in choices
+    Raises:
+        ValueError: If value is not in choices
     """
     if value not in choices:
         sorted_choices = sorted(choices)
@@ -787,17 +659,12 @@ def validate_choice(value: str, choices: set[str], name: str) -> str:
 def _validate_metric_name(metric_name: str) -> None:
     """Validate that metric exists in the metric registry.
 
-    Parameters
-    ----------
-    metric_name
-        Name of the metric to validate
+    Args:
+        metric_name: Name of the metric to validate
 
-    Raises
-    ------
-    TypeError
-        If metric_name is not a string
-    ValueError
-        If metric is not registered
+    Raises:
+        TypeError: If metric_name is not a string
+        ValueError: If metric is not registered
     """
     if not isinstance(metric_name, str):
         raise TypeError(f"metric must be a string, got {type(metric_name)}")
@@ -853,30 +720,19 @@ def _validate_threshold_inputs(
     This function consolidates common validation patterns used across
     confusion matrix computation and threshold optimization functions.
 
-    Parameters
-    ----------
-    y_true
-        True binary labels
-    pred_proba
-        Predicted probabilities or scores
-    threshold
-        Decision threshold
-    sample_weight
-        Sample weights
-    comparison
-        Comparison operator
-    require_proba
-        Whether to enforce [0,1] probability range
+    Args:
+        y_true: True binary labels
+        pred_proba: Predicted probabilities or scores
+        threshold: Decision threshold
+        sample_weight: Sample weights
+        comparison: Comparison operator
+        require_proba: Whether to enforce [0,1] probability range
 
-    Returns
-    -------
-    tuple
+    Returns:
         (validated_labels, validated_proba, validated_weights)
 
-    Raises
-    ------
-    ValueError
-        If any input validation fails
+    Raises:
+        ValueError: If any input validation fails
     """
     # Validate labels and probabilities
     y_true_val, pred_proba_val, sample_weight_val = validate_binary_classification(

@@ -28,7 +28,7 @@ class TestModeParameter:
 
         with pytest.raises(
             ValueError,
-            match="mode='bayes' requires 'utility' .* or 'fp_costs'/'fn_costs'",
+            match=r"mode='bayes' requires 'utility' .* or 'fp_costs'/'fn_costs'",
         ):
             optimize_thresholds(None, y_prob, mode="bayes")
 
@@ -49,7 +49,8 @@ class TestModeParameter:
 
         # Should work with F1 and return an OptimizationResult
         result1 = optimize_thresholds(y_true, y_prob, metric="f1", mode="expected")
-        assert hasattr(result1, "threshold") and hasattr(result1, "score")
+        assert hasattr(result1, "threshold")
+        assert hasattr(result1, "score")
         threshold, f1_score = result1.threshold, result1.score
         assert isinstance(threshold, float | np.number) or (
             isinstance(threshold, np.ndarray) and threshold.size == 1
@@ -59,7 +60,8 @@ class TestModeParameter:
 
         # Should also work with f1 (which is F-beta with beta=1)
         result2 = optimize_thresholds(y_true, y_prob, metric="f1", mode="expected")
-        assert hasattr(result2, "threshold") and hasattr(result2, "score")
+        assert hasattr(result2, "threshold")
+        assert hasattr(result2, "score")
 
         # Should NOT work with non-F-beta metrics
         with pytest.raises(
@@ -97,7 +99,8 @@ class TestModeParameter:
             sample_weight=sample_weight,
         )
         threshold = result1.threshold
-        assert hasattr(result1, "threshold") and hasattr(result1, "score")
+        assert hasattr(result1, "threshold")
+        assert hasattr(result1, "score")
         threshold, _f1_score = result1.threshold, result1.score
         assert 0 <= threshold <= 1
         assert 0 <= threshold <= 1
@@ -111,7 +114,8 @@ class TestModeParameter:
         threshold = result1.threshold
         threshold = result1.threshold
         threshold = result1.threshold
-        assert hasattr(result1, "threshold") and hasattr(result1, "score")
+        assert hasattr(result1, "threshold")
+        assert hasattr(result1, "score")
         threshold, _f1_score = result1.threshold, result1.score
         assert 0 <= threshold <= 1
         assert 0 <= threshold <= 1
@@ -129,7 +133,7 @@ class TestDeprecatedParameterRejection:
             optimize_thresholds(None, y_prob, utility=utility, bayes=True)
 
     def test_deprecated_dinkelbach_method_rejected(self):
-        """Test that deprecated method='dinkelbach' raises ValueError (method no longer exists)."""
+        """Deprecated method='dinkelbach' raises ValueError; it no longer exists."""
         y_true = np.array([0, 0, 1, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
@@ -137,7 +141,7 @@ class TestDeprecatedParameterRejection:
             optimize_thresholds(y_true, y_prob, metric="f1", method="dinkelbach")
 
     def test_deprecated_smart_brute_method_rejected(self):
-        """Test that deprecated method='smart_brute' raises ValueError (method no longer exists)."""
+        """Deprecated method='smart_brute' raises ValueError; it no longer exists."""
         y_true = np.array([0, 0, 1, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
@@ -149,7 +153,7 @@ class TestMethodEquivalence:
     """Test that different methods produce equivalent results."""
 
     def test_unique_scan_vs_sort_scan_equivalence(self):
-        """Test that unique_scan gives same results as sort_scan for piecewise metrics."""
+        """Unique_scan gives same results as sort_scan for piecewise metrics."""
         y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9, 0.15, 0.85])
 
@@ -157,7 +161,8 @@ class TestMethodEquivalence:
 
         result2 = optimize_thresholds(y_true, y_prob, metric="f1", method="sort_scan")
 
-        # Both methods should achieve the same optimal score (thresholds may differ on plateaus)
+        # Both methods should achieve the same optimal score (thresholds may differ on
+        # plateaus)
         from optimal_cutoffs.metrics import compute_metric_at_threshold
 
         score_unique = compute_metric_at_threshold(
@@ -166,12 +171,13 @@ class TestMethodEquivalence:
         score_sort = compute_metric_at_threshold(
             y_true, y_prob, result2.threshold, "f1"
         )
-        assert (
-            abs(score_unique - score_sort) < 1e-10
-        ), f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
+        assert abs(score_unique - score_sort) < 1e-10, (
+            f"Score mismatch: unique_scan={score_unique:.10f}, "
+            f"sort_scan={score_sort:.10f}"
+        )
 
     def test_unique_scan_vs_sort_scan_on_piecewise_metrics(self):
-        """Test that unique_scan gives same results as sort_scan for piecewise metrics."""
+        """Unique_scan gives same results as sort_scan for piecewise metrics."""
         y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9, 0.15, 0.85])
 
@@ -179,7 +185,8 @@ class TestMethodEquivalence:
 
         result2 = optimize_thresholds(y_true, y_prob, metric="f1", method="sort_scan")
 
-        # Both methods should achieve the same optimal score (thresholds may differ on plateaus)
+        # Both methods should achieve the same optimal score (thresholds may differ on
+        # plateaus)
         from optimal_cutoffs.metrics import compute_metric_at_threshold
 
         score_unique = compute_metric_at_threshold(
@@ -188,9 +195,10 @@ class TestMethodEquivalence:
         score_sort = compute_metric_at_threshold(
             y_true, y_prob, result2.threshold, "f1"
         )
-        assert (
-            abs(score_unique - score_sort) < 1e-10
-        ), f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
+        assert abs(score_unique - score_sort) < 1e-10, (
+            f"Score mismatch: unique_scan={score_unique:.10f}, "
+            f"sort_scan={score_sort:.10f}"
+        )
 
 
 class TestCVDefaultMethods:
@@ -279,12 +287,10 @@ class TestGoldenTests:
         result2 = optimize_thresholds(y_true, y_prob, metric="f1", mode="expected")
 
         # Both should return tuples
-        assert hasattr(result1, "threshold") and hasattr(
-            result1, "score"
-        )  # Expected mode returns OptimizationResult
-        assert hasattr(result2, "threshold") and hasattr(
-            result2, "score"
-        )  # Expected mode returns OptimizationResult
+        assert hasattr(result1, "threshold")
+        assert hasattr(result1, "score")
+        assert hasattr(result2, "threshold")
+        assert hasattr(result2, "score")
 
         # Extract thresholds and compare
         _threshold1, f1_score1 = result2.threshold, result2.score
@@ -300,7 +306,7 @@ class TestErrorMessages:
         """Test clear error message for mode='bayes' without utility."""
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="mode='bayes' requires") as exc_info:
             optimize_thresholds(None, y_prob, mode="bayes")
 
         assert "mode='bayes' requires" in str(exc_info.value)
@@ -313,7 +319,8 @@ class TestErrorMessages:
         # Should work with F1 metric (the only supported F-beta metric currently)
         result1 = optimize_thresholds(y_true, y_prob, metric="f1", mode="expected")
         threshold = result1.threshold
-        assert hasattr(result1, "threshold") and hasattr(result1, "score")
+        assert hasattr(result1, "threshold")
+        assert hasattr(result1, "score")
         threshold, f1_score = result1.threshold, result1.score
         assert 0 <= threshold <= 1
         assert 0 <= f1_score <= 1

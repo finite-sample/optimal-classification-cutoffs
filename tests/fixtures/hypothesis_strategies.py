@@ -170,9 +170,7 @@ def multiclass_probs(n_classes: int, min_size: int = 10, max_size: int = 100):
         )
 
         # Normalize to sum to 1
-        probs = probs / probs.sum(axis=1, keepdims=True)
-
-        return probs
+        return probs / probs.sum(axis=1, keepdims=True)
 
     return _make_multiclass_probs()
 
@@ -367,7 +365,8 @@ def permutation_invariant_multiclass(
     Returns
     -------
     hypothesis.strategies.SearchStrategy
-        Strategy that generates ((labels, probs), (labels_perm, probs_perm), perm) tuples
+        Strategy that generates ((labels, probs), (labels_perm, probs_perm), perm)
+        tuples
     """
 
     @st.composite

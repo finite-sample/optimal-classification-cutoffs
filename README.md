@@ -19,6 +19,7 @@ y_pred = (model.predict_proba(X)[:, 1] >= 0.5).astype(int)
 
 # Optimized threshold
 from optimal_cutoffs import optimize_thresholds
+
 result = optimize_thresholds(y_true, y_scores, metric="f1")
 y_pred = result.predict(y_scores_test)
 # F1 Score: 0.891 (improvement depends on dataset characteristics)
@@ -75,7 +76,7 @@ y_scores = model.predict_proba(X_test)
 result = optimize_thresholds(y_true, y_scores, metric="f1")
 print(f"Per-class thresholds: {result.thresholds}")
 print(f"Task detected: {result.task.value}")  # "multiclass"
-print(f"Method used: {result.method}")        # "coord_ascent"
+print(f"Method used: {result.method}")  # "coord_ascent"
 
 # Predictions use optimal thresholds
 y_pred = result.predict(y_scores_new)
@@ -116,7 +117,7 @@ result = optimize_decisions(y_score, cost_matrix)
 from optimal_cutoffs import metrics, bayes, cv, algorithms
 
 # Custom metrics
-custom_f2 = lambda tp, tn, fp, fn: (5*tp) / (5*tp + 4*fn + fp)
+custom_f2 = lambda tp, tn, fp, fn: (5 * tp) / (5 * tp + 4 * fn + fp)
 metrics.register("f2", custom_f2)
 
 # Cross-validation with threshold tuning (operates on labels and scores)
@@ -133,9 +134,11 @@ Everything is explainable. The library tells you what it detected and why:
 ```python
 result = optimize_thresholds(y_true, y_scores)  # All defaults
 
-print(f"Task: {result.task.value}")           # "binary" (auto-detected)
-print(f"Method: {result.method}")             # "sort_scan" (O(n log n))
-print(f"Notes: {result.notes}")               # ["Detected binary task...", "Selected sort_scan for O(n log n) optimization..."]
+print(f"Task: {result.task.value}")  # "binary" (auto-detected)
+print(f"Method: {result.method}")  # "sort_scan" (O(n log n))
+print(
+    f"Notes: {result.notes}"
+)  # ["Detected binary task...", "Selected sort_scan for O(n log n) optimization..."]
 ```
 
 ## Why This Works: Mathematical Foundations
@@ -178,7 +181,9 @@ from optimal_cutoffs import optimize_thresholds
 
 # Realistic imbalanced dataset (like fraud detection)
 X, y = make_classification(n_samples=1000, weights=[0.9, 0.1], random_state=42)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, stratify=y, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, stratify=y, random_state=42
+)
 
 # Train any classifier
 model = RandomForestClassifier(random_state=42)
@@ -223,7 +228,8 @@ from optimal_cutoffs import cv
 # Returns (thresholds, scores): the threshold chosen on each fold's training part
 # and the metric it achieved on that fold's held-out part.
 thresholds, scores = cv.cross_validate(
-    y_true, y_scores,
+    y_true,
+    y_scores,
     metric="f1",
     cv=5,
 )
@@ -233,9 +239,11 @@ thresholds, scores = cv.cross_validate(
 ```python
 from optimal_cutoffs import metrics
 
+
 # Register custom Fβ score
 def f_beta(tp, tn, fp, fn, beta=2.0):
     return (1 + beta**2) * tp / ((1 + beta**2) * tp + beta**2 * fn + fp)
+
 
 metrics.register("f2", lambda tp, tn, fp, fn: f_beta(tp, tn, fp, fn, 2.0))
 

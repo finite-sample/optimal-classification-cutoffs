@@ -7,10 +7,9 @@ Two canonical functions:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
 
 from .core import (
     Average,
@@ -20,6 +19,11 @@ from .core import (
     select_average_with_explanation,
     select_method_with_explanation,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from numpy.typing import ArrayLike, NDArray
 
 
 def optimize_thresholds(
@@ -44,87 +48,70 @@ def optimize_thresholds(
     This is THE canonical entry point for threshold optimization.
     Auto-detects problem type and selects appropriate algorithms.
 
-    Parameters
-    ----------
-    y_true
-        True labels
-    y_score
-        Predicted scores/probabilities
-        - Binary: 1D array of scores
-        - Multiclass: 2D array (n_samples, n_classes)
-        - Multilabel: 2D array (n_samples, n_labels)
-    metric
-        Metric to optimize ("f1", "precision", "recall", "accuracy", etc.)
-    task
-        Problem type. AUTO infers from data shape and probability sums.
-    average
-        Averaging strategy for multiclass/multilabel. AUTO selects sensible default.
-    method
-        Optimization algorithm. AUTO selects best method per task+metric.
-    mode
-        "empirical" (standard) or "expected" (requires calibrated probabilities)
-    sample_weight
-        Sample weights
-    utility
-        Utility specification for binary Bayes optimization with keys "tp", "tn", "fp", "fn".
-        Required when mode="bayes" for binary classification.
-    fp_costs
-        Per-class false positive costs for multiclass Bayes optimization.
-        Required when mode="bayes" for multiclass classification.
-    fn_costs
-        Per-class false negative costs for multiclass Bayes optimization.
-        Required when mode="bayes" for multiclass classification.
-    comparison
-        Comparison operator for threshold. Must be ">" or ">=".
-    tolerance
-        Numerical tolerance for optimization.
-    **kwargs
-        Additional keyword arguments passed to optimization algorithms.
+    Args:
+        y_true: True labels
+        y_score: Predicted scores/probabilities
+            - Binary: 1D array of scores
+            - Multiclass: 2D array (n_samples, n_classes)
+            - Multilabel: 2D array (n_samples, n_labels)
+        metric: Metric to optimize ("f1", "precision", "recall", "accuracy", etc.)
+        task: Problem type. AUTO infers from data shape and probability sums.
+        average: Averaging strategy for multiclass/multilabel. AUTO selects sensible
+            default.
+        method: Optimization algorithm. AUTO selects best method per task+metric.
+        mode: "empirical" (standard) or "expected" (requires calibrated probabilities)
+        sample_weight: Sample weights
+        utility: Utility specification for binary Bayes optimization with keys "tp",
+            "tn", "fp", "fn".
+            Required when mode="bayes" for binary classification.
+        fp_costs: Per-class false positive costs for multiclass Bayes optimization.
+            Required when mode="bayes" for multiclass classification.
+        fn_costs: Per-class false negative costs for multiclass Bayes optimization.
+            Required when mode="bayes" for multiclass classification.
+        comparison: Comparison operator for threshold. Must be ">" or ">=".
+        tolerance: Numerical tolerance for optimization.
+        **kwargs: Additional keyword arguments passed to optimization algorithms.
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with .thresholds, .predict(), and explanation of auto-selections
 
-    Raises
-    ------
-    TypeError
-        If 'bayes' is passed as a keyword argument (deprecated).
-    ValueError
-        If mode='bayes' requires utility parameter but none provided.
-        If comparison operator is not '>' or '>='.
-        If mode='expected' with unsupported metric.
-        If method is deprecated ('dinkelbach', 'smart_brute').
-        If unknown metric name is provided.
-        If y_true required for empirical mode but not provided.
+    Raises:
+        TypeError: If 'bayes' is passed as a keyword argument (deprecated).
+        ValueError: If mode='bayes' requires utility parameter but none provided.
+            If comparison operator is not '>' or '>='.
+            If mode='expected' with unsupported metric.
+            If method is deprecated ('dinkelbach', 'smart_brute').
+            If unknown metric name is provided.
+            If y_true required for empirical mode but not provided.
 
-    Examples
-    --------
-    >>> # Binary classification - simple case
-    >>> result = optimize_thresholds(y_true, y_scores, metric="f1")
-    >>> print(f"Optimal threshold: {result.threshold}")
+    Examples:
+        >>> # Binary classification - simple case
+        >>> result = optimize_thresholds(y_true, y_scores, metric="f1")
+        >>> print(f"Optimal threshold: {result.threshold}")
 
-    >>> # Multiclass classification
-    >>> result = optimize_thresholds(y_true, y_probs, metric="f1")
-    >>> print(f"Per-class thresholds: {result.thresholds}")
-    >>> print(f"Task inferred as: {result.task.value}")
+        >>> # Multiclass classification
+        >>> result = optimize_thresholds(y_true, y_probs, metric="f1")
+        >>> print(f"Per-class thresholds: {result.thresholds}")
+        >>> print(f"Task inferred as: {result.task.value}")
 
-    >>> # Explicit control when needed
-    >>> result = optimize_thresholds(
-    ...     y_true, y_probs,
-    ...     metric="precision",
-    ...     task=Task.MULTICLASS,
-    ...     average=Average.MACRO
-    ... )
+        >>> # Explicit control when needed
+        >>> result = optimize_thresholds(
+        ...     y_true, y_probs,
+        ...     metric="precision",
+        ...     task=Task.MULTICLASS,
+        ...     average=Average.MACRO
+        ... )
     """
     # Early validation for mode-specific requirements
-    # Bayes mode requires either 'utility' (binary) or 'fp_costs'/'fn_costs' (multiclass)
+    # Bayes mode requires either 'utility' (binary) or 'fp_costs'/'fn_costs'
+    # (multiclass)
     if mode == "bayes":
         has_utility = utility is not None
         has_costs = fp_costs is not None and fn_costs is not None
         if not has_utility and not has_costs:
             raise ValueError(
-                "mode='bayes' requires 'utility' (binary) or 'fp_costs'/'fn_costs' (multiclass)"
+                "mode='bayes' requires 'utility' (binary) or 'fp_costs'/'fn_costs' "
+                "(multiclass)"
             )
 
     # Check for deprecated parameters
@@ -236,10 +223,12 @@ def optimize_thresholds(
         and inferred_task == Task.MULTICLASS
         and comparison == ">="
     ):
-        # Auto-selected coord_ascent but comparison=">=" provided, fall back to independent
+        # Auto-selected coord_ascent but comparison=">=" provided, fall back to
+        # independent
         final_method = "independent"
         all_notes.append(
-            "Switched from coord_ascent to independent due to comparison='>=' requirement"
+            "Switched from coord_ascent to independent due to comparison='>=' "
+            "requirement"
         )
 
     # Route to appropriate implementation
@@ -281,27 +270,21 @@ def optimize_decisions(
     For problems where thresholds aren't the right abstraction.
     Uses Bayes-optimal decision rule: argmin_action E[cost | probabilities].
 
-    Parameters
-    ----------
-    y_score
-        Predicted probabilities (n_samples, n_classes)
-    cost_matrix
-        Cost matrix (n_classes, n_actions) or (n_classes, n_classes)
-        cost_matrix[i, j] = cost of predicting action j when true class is i
-    **kwargs
-        Additional keyword arguments passed to the Bayes optimal decision function.
+    Args:
+        y_score: Predicted probabilities (n_samples, n_classes)
+        cost_matrix: Cost matrix (n_classes, n_actions) or (n_classes, n_classes)
+            cost_matrix[i, j] = cost of predicting action j when true class is i
+        **kwargs: Additional keyword arguments passed to the Bayes optimal decision
+            function.
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with .predict() function (no .thresholds)
 
-    Examples
-    --------
-    >>> # Cost matrix: rows=true class, cols=predicted class
-    >>> costs = [[0, 1, 10], [5, 0, 1], [50, 10, 0]]  # FN costs 5x more than FP
-    >>> result = optimize_decisions(y_probs, costs)
-    >>> y_pred = result.predict(y_probs_test)
+    Examples:
+        >>> # Cost matrix: rows=true class, cols=predicted class
+        >>> costs = [[0, 1, 10], [5, 0, 1], [50, 10, 0]]  # FN costs 5x more than FP
+        >>> result = optimize_decisions(y_probs, costs)
+        >>> y_pred = result.predict(y_probs_test)
     """
     from .bayes_core import bayes_optimal_decisions
 
@@ -328,7 +311,6 @@ def _route_to_implementation(
     **kwargs,
 ) -> OptimizationResult:
     """Route to appropriate implementation based on task and method."""
-
     match task:
         case Task.BINARY:
             return _optimize_binary(
@@ -392,7 +374,6 @@ def _optimize_binary(
     **kwargs,
 ) -> OptimizationResult:
     """Route binary optimization to appropriate algorithm."""
-
     if mode == "expected":
         from .expected import dinkelbach_expected_fbeta_binary
 
@@ -492,7 +473,8 @@ def _optimize_binary(
 
         case _:
             raise ValueError(
-                f"Invalid optimization method: '{method}' is not supported for binary classification"
+                f"Invalid optimization method: '{method}' is not supported for binary "
+                f"classification"
             )
 
 
@@ -512,7 +494,6 @@ def _optimize_multiclass(
     **kwargs,
 ) -> OptimizationResult:
     """Route multiclass optimization to appropriate algorithm."""
-
     if mode == "bayes":
         from .bayes_core import bayes_thresholds_from_costs
 
@@ -543,18 +524,17 @@ def _optimize_multiclass(
             # coord_ascent only supports ">" comparison
             if comparison == ">=":
                 raise NotImplementedError("'>' is required for coord_ascent method")
-            else:
-                from .multiclass import optimize_ovr_margin
+            from .multiclass import optimize_ovr_margin
 
-                return optimize_ovr_margin(
-                    y_true,
-                    y_score,
-                    metric=metric,
-                    sample_weight=sample_weight,
-                    comparison=comparison,
-                    tolerance=tolerance,
-                    **kwargs,
-                )
+            return optimize_ovr_margin(
+                y_true,
+                y_score,
+                metric=metric,
+                sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
+                **kwargs,
+            )
 
         case "independent":
             from .multiclass import optimize_ovr_independent
@@ -612,7 +592,8 @@ def _optimize_multiclass(
 
         case _:
             raise ValueError(
-                f"Invalid optimization method: '{method}' is not supported for multiclass classification"
+                f"Invalid optimization method: '{method}' is not supported for "
+                f"multiclass classification"
             )
 
 
@@ -630,7 +611,6 @@ def _optimize_multilabel(
     **kwargs,
 ) -> OptimizationResult:
     """Route multilabel optimization to appropriate algorithm."""
-
     if mode == "expected":
         from .expected import dinkelbach_expected_fbeta_multilabel
 

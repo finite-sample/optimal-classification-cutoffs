@@ -219,18 +219,17 @@ def generate_sample_weights(
 
     if weight_type == "uniform":
         return np.ones(n_samples, dtype=float)
-    elif weight_type == "random":
+    if weight_type == "random":
         return rng.uniform(0.1, 3.0, n_samples)
-    elif weight_type == "integer":
+    if weight_type == "integer":
         return rng.integers(1, 5, n_samples).astype(float)
-    elif weight_type == "extreme":
+    if weight_type == "extreme":
         weights = rng.uniform(0.01, 10.0, n_samples)
         # Add some very small and very large weights
         weights[0] = 1e-6
         weights[-1] = 1e6
         return weights
-    else:
-        raise ValueError(f"Unknown weight_type: {weight_type}")
+    raise ValueError(f"Unknown weight_type: {weight_type}")
 
 
 def generate_imbalanced_data(

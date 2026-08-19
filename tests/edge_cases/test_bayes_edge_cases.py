@@ -115,7 +115,8 @@ class TestMulticlassApplyFallback:
         """Test fallback when no class meets threshold."""
         from optimal_cutoffs import OptimizationResult
 
-        # Create a predict function that mimics the old BayesThresholdResult.apply behavior
+        # Create a predict function that mimics the old BayesThresholdResult.apply
+        # behavior
         def predict_func(probs):
             thresholds = np.array([0.7, 0.8, 0.9])
             predictions = []
@@ -123,7 +124,8 @@ class TestMulticlassApplyFallback:
                 # Check which classes pass threshold
                 passes_threshold = prob_row >= thresholds
                 if np.any(passes_threshold):
-                    # Predict class with highest probability among those passing threshold
+                    # Predict class with highest probability among those passing
+                    # threshold
                     valid_indices = np.where(passes_threshold)[0]
                     best_idx = valid_indices[np.argmax(prob_row[valid_indices])]
                     predictions.append(best_idx)
@@ -199,7 +201,8 @@ class TestExpectedUtility:
 
         probs = np.array([[0.7, 0.2, 0.1], [0.1, 0.8, 0.1]])
         eu = bo.expected_utility(probs)
-        # Expected utility should be max of each row: max(0.7, 0.2, 0.1) + max(0.1, 0.8, 0.1) = 0.7 + 0.8 = 1.5/2 = 0.75
+        # Expected utility should be max of each row: max(0.7, 0.2, 0.1) + max(0.1, 0.8,
+        # 0.1) = 0.7 + 0.8 = 1.5/2 = 0.75
         assert abs(eu - 0.75) < 1e-12
 
 
@@ -300,7 +303,7 @@ class TestMathematicalProperties:
         bo = BayesOptimal(u)
 
         # For D > 0, margin >= 0 should equal p >= threshold
-        A, B, D = bo._binary_params()
+        _A, B, D = bo._binary_params()
         assert D > 0  # Ensure D > 0 for this test
 
         threshold = B / D

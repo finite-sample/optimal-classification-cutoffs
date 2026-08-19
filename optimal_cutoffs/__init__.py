@@ -15,7 +15,7 @@ except Exception:
 
     pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
     if pyproject_path.exists():
-        with open(pyproject_path, "rb") as f:
+        with pyproject_path.open("rb") as f:
             __version__ = tomllib.load(f)["project"]["version"]
     else:
         __version__ = "unknown"
@@ -31,6 +31,7 @@ from .core import Average, OptimizationResult, Task
 def _import_metrics():
     """Import metrics namespace avoiding circular dependency."""
     import importlib.util
+    import pathlib
 
     # Load metrics namespace module
     metrics_path = pathlib.Path(__file__).parent / "metrics" / "__init__.py"
@@ -38,6 +39,8 @@ def _import_metrics():
         "optimal_cutoffs.metrics",
         metrics_path,
     )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load optimal_cutoffs.metrics from {metrics_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -50,16 +53,16 @@ except ImportError:
     metrics = _import_metrics()
 
 __all__ = [
-    "__version__",
-    # === Core API ===
-    "optimize_thresholds",  # THE canonical entry point
-    "optimize_decisions",  # For cost matrices (no thresholds)
+    "Average",  # Enums for explicit choices
     "OptimizationResult",  # Unified result type
     "Task",
-    "Average",  # Enums for explicit choices
-    # === Namespaced Power Tools ===
-    "metrics",  # metrics.get(), metrics.register(), etc.
+    "__version__",
+    "algorithms",  # algorithms.multiclass.ovr_margin(), etc.
     "bayes",  # bayes.threshold(), bayes.policy(), etc.
     "cv",  # cv.cross_validate(), cv.nested_cross_validate()
-    "algorithms",  # algorithms.multiclass.ovr_margin(), etc.
+    # === Namespaced Power Tools ===
+    "metrics",  # metrics.get(), metrics.register(), etc.
+    "optimize_decisions",  # For cost matrices (no thresholds)
+    # === Core API ===
+    "optimize_thresholds",  # THE canonical entry point
 ]

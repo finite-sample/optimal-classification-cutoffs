@@ -41,7 +41,8 @@ class TestCoordinateAscentCore:
         # Shift class 0 threshold up -> fewer class 0 predictions
         tau = np.array([0.5, 0.0, 0.0])
         y_pred = _assign_labels_shifted(P, tau)
-        # Sample 0: [0.7-0.5, 0.2-0.0, 0.1-0.0] = [0.2, 0.2, 0.1] -> argmax = 0 or 1 (tie)
+        # Sample 0: [0.7-0.5, 0.2-0.0, 0.1-0.0] = [0.2, 0.2, 0.1] -> argmax = 0 or 1
+        # (tie)
         # Since argmax picks first in ties, still class 0
         assert y_pred[0] in [0, 1]  # Allow for tie-breaking
         assert y_pred[1] == 1  # Class 1 clearly best
@@ -79,14 +80,18 @@ class TestCoordinateAscentCore:
         P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
         tau, best_macro, history = coordinate_ascent_kernel(
-            y_true_int32, P_float64, weights=get_sample_weights(None, len(y_true_int32)), max_iter=10, tol=1e-12
+            y_true_int32,
+            P_float64,
+            weights=get_sample_weights(None, len(y_true_int32)),
+            max_iter=10,
+            tol=1e-12,
         )
 
         # Check monotone ascent in history
         for i in range(1, len(history)):
-            assert (
-                history[i] >= history[i - 1] - 1e-12
-            ), f"Non-monotone at step {i}: {history[i - 1]} -> {history[i]}"
+            assert history[i] >= history[i - 1] - 1e-12, (
+                f"Non-monotone at step {i}: {history[i - 1]} -> {history[i]}"
+            )
 
         # Verify final result
         assert len(tau) == C
@@ -116,8 +121,12 @@ class TestCoordinateAscentCore:
         P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
         # Coordinate ascent
-        tau, best_macro, _ = coordinate_ascent_kernel(
-            y_true_int32, P_float64, weights=get_sample_weights(None, len(y_true_int32)), max_iter=10, tol=1e-12
+        _tau, best_macro, _ = coordinate_ascent_kernel(
+            y_true_int32,
+            P_float64,
+            weights=get_sample_weights(None, len(y_true_int32)),
+            max_iter=10,
+            tol=1e-12,
         )
 
         # Coordinate ascent should be >= OvR baseline
@@ -133,8 +142,12 @@ class TestCoordinateAscentCore:
         y_true_int32 = np.asarray(y_true, dtype=np.int32)
         P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
-        tau, best_macro, history = coordinate_ascent_kernel(
-            y_true_int32, P_float64, weights=get_sample_weights(None, len(y_true_int32)), max_iter=5, tol=1e-12
+        tau, _best_macro, history = coordinate_ascent_kernel(
+            y_true_int32,
+            P_float64,
+            weights=get_sample_weights(None, len(y_true_int32)),
+            max_iter=5,
+            tol=1e-12,
         )
 
         assert len(tau) == 2
@@ -157,7 +170,11 @@ class TestCoordinateAscentCore:
         # Test with different tolerances (replacing init strategies)
         for tol in [1e-10, 1e-12]:
             tau, best_macro, _ = coordinate_ascent_kernel(
-                y_true_int32, P_float64, weights=get_sample_weights(None, len(y_true_int32)), max_iter=5, tol=tol
+                y_true_int32,
+                P_float64,
+                weights=get_sample_weights(None, len(y_true_int32)),
+                max_iter=5,
+                tol=tol,
             )
             assert len(tau) == C
             assert 0.0 <= best_macro <= 1.0
@@ -319,7 +336,11 @@ class TestCoordinateAscentPerformance:
             P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
             tau, best_macro, history = coordinate_ascent_kernel(
-                y_true_int32, P_float64, weights=get_sample_weights(None, len(y_true_int32)), max_iter=20, tol=tol
+                y_true_int32,
+                P_float64,
+                weights=get_sample_weights(None, len(y_true_int32)),
+                max_iter=20,
+                tol=tol,
             )
 
             # Should terminate before max_iter due to convergence

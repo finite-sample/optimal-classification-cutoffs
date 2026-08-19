@@ -30,7 +30,8 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 
-# Removed validate_binary_data - use validate_binary_classification from validation.py instead
+# Removed validate_binary_data - use validate_binary_classification from validation.py
+# instead
 
 
 # ============================================================================
@@ -144,7 +145,7 @@ def sort_scan_kernel(
 
 @jit(nopython=True, fastmath=True, cache=True)
 def compute_macro_f1(tp: np.ndarray, fp: np.ndarray, support: np.ndarray) -> float:
-    """Compute macro F1 from per-class TP/FP and per-class support (FN = support - TP)."""
+    """Compute macro F1 from per-class TP/FP and support (FN = support - TP)."""
     f1_sum = 0.0
     k = tp.shape[0]
     for c in range(k):
@@ -413,8 +414,9 @@ def optimize_scipy(
         result = optimize.minimize_scalar(
             objective, bounds=bounds, method=method, options={"xatol": tol}
         )
-        optimal_threshold = float(result.x)
-        optimal_score = -float(result.fun)
+        # scipy's OptimizeResult is typed as a bare object in its stubs.
+        optimal_threshold = float(result.x)  # pyright: ignore[reportAttributeAccessIssue]
+        optimal_score = -float(result.fun)  # pyright: ignore[reportAttributeAccessIssue]
     except Exception:
         logger.warning("Scipy optimization failed, falling back to sort_scan")
         return optimize_sort_scan(labels, scores, metric, weights, operator)
@@ -702,17 +704,13 @@ def find_optimal_threshold(
 
         if is_piecewise_metric(metric):
             return optimize_sort_scan(labels, scores, metric, weights, operator)
-        else:
-            return optimize_scipy(
-                labels, scores, metric, weights, operator, tol=tolerance
-            )
-    elif strategy == "sort_scan":
-        return optimize_sort_scan(labels, scores, metric, weights, operator)
-    elif strategy == "scipy":
         return optimize_scipy(labels, scores, metric, weights, operator, tol=tolerance)
-    elif strategy == "gradient":
+    if strategy == "sort_scan":
+        return optimize_sort_scan(labels, scores, metric, weights, operator)
+    if strategy == "scipy":
+        return optimize_scipy(labels, scores, metric, weights, operator, tol=tolerance)
+    if strategy == "gradient":
         return optimize_gradient(
             labels, scores, metric, weights, operator, tol=tolerance
         )
-    else:
-        return optimize_sort_scan(labels, scores, metric, weights, operator)
+    return optimize_sort_scan(labels, scores, metric, weights, operator)

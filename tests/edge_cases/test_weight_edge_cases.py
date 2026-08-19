@@ -275,7 +275,8 @@ def test_sample_weights_piecewise_optimization():
     threshold = result.threshold
     assert 0 <= threshold <= 1
 
-    # Verify it's actually using the piecewise optimization by checking it gives a reasonable result
+    # Verify it's actually using the piecewise optimization by checking it gives a
+    # reasonable result
     # The threshold should be reasonable for the probability distribution
     # With enhanced piecewise optimization, thresholds can be midpoints or edge values
     unique_probs = np.unique(pred_prob)
@@ -293,9 +294,10 @@ def test_sample_weights_piecewise_optimization():
         candidate_values.append(max(0.0, sorted_probs[0] - 0.01))  # Below min
 
     min_distance = min(abs(threshold - p) for p in candidate_values)
-    assert (
-        min_distance < 0.02
-    ), f"Threshold {threshold} not close to any candidate value. Candidates: {sorted(set(candidate_values))}"
+    assert min_distance < 0.02, (
+        f"Threshold {threshold} not close to any candidate value. Candidates: "
+        f"{sorted(set(candidate_values))}"
+    )
 
 
 if __name__ == "__main__":

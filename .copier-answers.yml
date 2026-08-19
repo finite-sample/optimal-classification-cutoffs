@@ -1,0 +1,13 @@
+# Managed by copier — records template version for `copier update`. Do not edit.
+_commit: v1.1.1
+_src_path: gh:gojiplus/py-canon
+author_email: contact@gsood.com
+author_name: Gaurav Sood
+coverage_floor: 65
+default_branch: master
+description: Utilities for computing optimal classification cutoffs for binary and
+    multiclass classification
+needs_cli: false
+org: finite-sample
+package_name: optimal_cutoffs
+project_name: optimal-classification-cutoffs

@@ -9,13 +9,13 @@ Notes on `require_proba`:
     - If `require_proba=True`, inputs are validated to lie in [0, 1].
     - The returned threshold is *usually* in [0, 1]; however, in boundary or tie cases,
       we may nudge it by one floating-point ULP beyond the range to correctly realize
-      strict inclusivity/exclusivity (e.g., to ensure "predict none" with '>=' when max p == 1.0).
+      strict inclusivity/exclusivity (e.g., to ensure "predict none" with '>=' when max
+      p == 1.0).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
@@ -26,6 +26,9 @@ from .metrics_core import (
     confusion_matrix_from_predictions,
 )
 from .validation import get_sample_weights, validate_binary_classification
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 Array = np.ndarray[Any, Any]
 
@@ -40,16 +43,14 @@ def _evaluate_metric_scalar_efficient(
     This avoids the inefficient pattern of converting scalars to single-element
     arrays just to call vectorized functions and extract the first element.
 
-    Parameters
-    ----------
-    metric_fn : callable
-        Vectorized metric function that expects arrays
-    tp, tn, fp, fn : float
-        Scalar confusion matrix values
+    Args:
+        metric_fn: Vectorized metric function that expects arrays
+        tp: Scalar true-positive count
+        tn: Scalar true-negative count
+        fp: Scalar false-positive count
+        fn: Scalar false-negative count
 
-    Returns
-    -------
-    float
+    Returns:
         Metric score
     """
     # Call vectorized function with single-element arrays and extract result
@@ -87,7 +88,8 @@ def _compute_threshold_midpoint(
         # For '>', make threshold strictly smaller than min_prob to include ties
         return float(np.nextafter(min_prob, -np.inf)) if not inclusive else min_prob
 
-    # General case: separate p_sorted[k_star-1] (included) and p_sorted[k_star] (excluded)
+    # General case: separate p_sorted[k_star-1] (included) and p_sorted[k_star]
+    # (excluded)
     inc = float(p_sorted[k_star - 1])
     exc = float(p_sorted[k_star])
 
@@ -108,7 +110,7 @@ def _compute_threshold_midpoint(
 
 
 def _realized_k(p_sorted: Array, threshold: float, inclusive: bool) -> int:
-    """Given a threshold and comparison mode, return #positives among p_sorted (desc)."""
+    """Count positives among p_sorted (descending) at a threshold and comparison."""
     q = -p_sorted
     t = -threshold
     side: Literal["left", "right"] = "right" if inclusive else "left"
@@ -136,43 +138,36 @@ def optimal_threshold_sortscan(
 ) -> OptimizationResult:
     """Exact optimizer for piecewise-constant metrics using O(n log n) sort-and-scan.
 
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples,)
-        Binary labels in {0, 1}.
-    y_score : array-like of shape (n_samples,)
-        Predicted probabilities in [0, 1] or arbitrary scores if require_proba=False.
-    metric : str or callable
-        Metric name (e.g., "f1", "precision") or vectorized function.
-        If string, automatically resolves to vectorized implementation.
-        If callable: (tp_vec, tn_vec, fp_vec, fn_vec) -> score_vec.
-    sample_weight : array-like, optional
-        Non-negative sample weights of shape (n_samples,).
-    inclusive : bool, default=False
-        If True, use ">="; if False, use ">".
-    require_proba : bool, default=True
-        Validate inputs in [0, 1]. Threshold may be nudged by ±1 ULP outside [0,1]
-        to exactly realize inclusivity/exclusivity in boundary/tie cases.
-    tolerance : float, default=1e-10
-        Numerical tolerance for floating-point comparisons when computing
-        threshold midpoints and handling ties between scores.
+    Args:
+        y_true: Binary labels in {0, 1}. Shape: (n_samples,).
+        y_score: Predicted probabilities in [0, 1] or arbitrary scores if
+            require_proba=False. Shape: (n_samples,).
+        metric: Metric name (e.g., "f1", "precision") or vectorized function.
+            If string, automatically resolves to vectorized implementation.
+            If callable: (tp_vec, tn_vec, fp_vec, fn_vec) -> score_vec.
+        sample_weight: Non-negative sample weights of shape (n_samples,). Optional.
+        inclusive: If True, use ">="; if False, use ">". Defaults to False.
+        require_proba: Validate inputs in [0, 1]. Threshold may be nudged by ±1 ULP
+            outside [0,1]
+            to exactly realize inclusivity/exclusivity in boundary/tie cases. Defaults
+            to True.
+        tolerance: Numerical tolerance for floating-point comparisons when computing
+            threshold midpoints and handling ties between scores. Defaults to 1e-10.
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         thresholds : array([optimal_threshold])
         scores     : array([achieved_score])
         predict    : callable(probs) -> {0,1}^n
         metric     : str, set to "piecewise_metric"
         n_classes  : 2
         diagnostics: dict with keys:
-            - k_argmax: theoretical best cut index (0..n) from the sweep
-            - k_realized: positives realized by the returned threshold
-            - score_theoretical: score at k_argmax
-            - score_actual: score achieved by the returned threshold
-            - tie_discrepancy: abs(theoretical - actual)
-            - inclusive: bool
-            - require_proba: bool
+        - k_argmax: theoretical best cut index (0..n) from the sweep
+        - k_realized: positives realized by the returned threshold
+        - score_theoretical: score at k_argmax
+        - score_actual: score achieved by the returned threshold
+        - tie_discrepancy: abs(theoretical - actual)
+        - inclusive: bool
+        - require_proba: bool
     """
     # 0) Resolve metric to vectorized function
     if isinstance(metric, str):
@@ -246,7 +241,8 @@ def optimal_threshold_sortscan(
 
         # Evaluate candidates
         for t in candidates:
-            # If require_proba, clamp only if it does not alter intended decision boundary;
+            # If require_proba, clamp only if it does not alter intended decision
+            # boundary;
             # we accept tiny excursions beyond [0,1] when necessary for semantics.
             t_eval = t
             pred_labels_alt = _predict_from_threshold(p, t_eval, inclusive)

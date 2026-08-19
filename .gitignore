@@ -37,3 +37,7 @@ test_results.txt
 *_results.txt
 test_*.txt
 /optimal_cutoffs/__pycache__
+
+# Sphinx build output (py-canon docs workflow)
+/_site
+/_doctest

@@ -4,7 +4,8 @@ This module tests that the optimization algorithms are deterministic and
 produce stable, reproducible results:
 
 1. Determinism: Identical inputs produce identical outputs across multiple runs
-2. Stable sorting: When multiple thresholds achieve the same score, selection is consistent
+2. Stable sorting: When multiple thresholds achieve the same score, selection is
+    consistent
 3. Reproducibility: Results are consistent across different environments/platforms
 4. Numerical stability: Small changes in input produce predictable changes in output
 
@@ -75,7 +76,8 @@ class TestBasicDeterminism:
                 # All runs should produce identical results
                 for i in range(1, len(thresholds)):
                     assert thresholds[i] == thresholds[0], (
-                        f"Method {method} not deterministic: run {i} gave {thresholds[i]:.15f}, "
+                        f"Method {method} not deterministic: run {i} gave "
+                        f"{thresholds[i]:.15f}, "
                         f"run 0 gave {thresholds[0]:.15f}"
                     )
 
@@ -108,9 +110,11 @@ class TestBasicDeterminism:
             if len(results) > 1:
                 # All runs should be identical
                 for i in range(1, len(results)):
-                    assert (
-                        results[i] == results[0]
-                    ), f"Metric {metric} not deterministic: run {i} gave {results[i]}, run 0 gave {results[0]}"
+                    assert results[i] == results[0], (
+                        f"Metric {metric} not deterministic: run {i} gave "
+                        f"{results[i]}, "
+                        f"run 0 gave {results[0]}"
+                    )
 
     def test_determinism_with_weights(self):
         """Test determinism when sample weights are used."""
@@ -136,9 +140,10 @@ class TestBasicDeterminism:
 
         if len(results) > 1:
             for i in range(1, len(results)):
-                assert (
-                    results[i] == results[0]
-                ), f"Weighted optimization not deterministic: run {i} gave {results[i]}, run 0 gave {results[0]}"
+                assert results[i] == results[0], (
+                    f"Weighted optimization not deterministic: run {i} gave "
+                    f"{results[i]}, run 0 gave {results[0]}"
+                )
 
     @given(n_samples=st.integers(10, 50), random_seed=st.integers(0, 1000))
     @settings(deadline=None, max_examples=20)
@@ -166,9 +171,9 @@ class TestBasicDeterminism:
 
             # Should be identical
             for i in range(1, len(results)):
-                assert (
-                    results[i] == results[0]
-                ), f"Property-based determinism failed: {results}"
+                assert results[i] == results[0], (
+                    f"Property-based determinism failed: {results}"
+                )
 
         except Exception as e:
             if any(
@@ -183,7 +188,7 @@ class TestStableSorting:
     """Test stable sorting behavior when multiple thresholds achieve same score."""
 
     def test_tied_scores_consistent_selection(self):
-        """When multiple thresholds achieve same score, selection should be consistent."""
+        """When several thresholds tie on score, the choice stays consistent."""
         labels, probs = _create_tied_score_scenario()
 
         # Run multiple times to check consistency
@@ -201,9 +206,9 @@ class TestStableSorting:
         if results:
             # All results should be identical despite potential ties
             for i in range(1, len(results)):
-                assert (
-                    results[i] == results[0]
-                ), f"Tied score handling not stable: got {results[i]} vs {results[0]}"
+                assert results[i] == results[0], (
+                    f"Tied score handling not stable: got {results[i]} vs {results[0]}"
+                )
 
     def test_stable_selection_with_duplicate_probabilities(self):
         """Test stable behavior when probabilities have duplicates."""
@@ -233,15 +238,17 @@ class TestStableSorting:
         # Within each comparison type, results should be identical
         if len(exclusive_results) > 1:
             for i in range(1, len(exclusive_results)):
-                assert (
-                    exclusive_results[i] == exclusive_results[0]
-                ), f"Exclusive comparison not stable with duplicates: {exclusive_results}"
+                assert exclusive_results[i] == exclusive_results[0], (
+                    f"Exclusive comparison not stable with duplicates: "
+                    f"{exclusive_results}"
+                )
 
         if len(inclusive_results) > 1:
             for i in range(1, len(inclusive_results)):
-                assert (
-                    inclusive_results[i] == inclusive_results[0]
-                ), f"Inclusive comparison not stable with duplicates: {inclusive_results}"
+                assert inclusive_results[i] == inclusive_results[0], (
+                    f"Inclusive comparison not stable with duplicates: "
+                    f"{inclusive_results}"
+                )
 
     def test_stable_sorting_preserves_order(self):
         """Test that stable sorting preserves relative order of tied elements."""
@@ -264,9 +271,10 @@ class TestStableSorting:
                 if len(tied_indices) > 1:
                     # All tied values should have same prediction
                     tied_predictions = pred[tied_indices]
-                    assert (
-                        len(set(tied_predictions)) <= 1
-                    ), f"Tied probabilities should have consistent predictions: {tied_predictions}"
+                    assert len(set(tied_predictions)) <= 1, (
+                        f"Tied probabilities should have consistent predictions: "
+                        f"{tied_predictions}"
+                    )
 
             # Result should be valid regardless
             assert 0 <= threshold <= 1
@@ -295,9 +303,9 @@ class TestStableSorting:
         if len(thresholds) > 1:
             # Should be deterministic
             for i in range(1, len(thresholds)):
-                assert (
-                    thresholds[i] == thresholds[0]
-                ), f"Tie-breaking not deterministic: {thresholds}"
+                assert thresholds[i] == thresholds[0], (
+                    f"Tie-breaking not deterministic: {thresholds}"
+                )
 
 
 class TestNumericalStability:
@@ -324,9 +332,10 @@ class TestNumericalStability:
             )
             threshold2 = result2.threshold
 
-            assert (
-                threshold == threshold2
-            ), f"Numerical precision case not reproducible: {threshold} vs {threshold2}"
+            assert threshold == threshold2, (
+                f"Numerical precision case not reproducible: {threshold} vs "
+                f"{threshold2}"
+            )
 
         except ValueError:
             pytest.skip("Numerical precision test case not supported")
@@ -356,9 +365,10 @@ class TestNumericalStability:
             if len(results) > 1:
                 # Should be stable with extreme values
                 for i in range(1, len(results)):
-                    assert (
-                        results[i] == results[0]
-                    ), f"Method {method} not stable with extreme probabilities: {results}"
+                    assert results[i] == results[0], (
+                        f"Method {method} not stable with extreme probabilities: "
+                        f"{results}"
+                    )
 
                 # Results should be valid
                 assert all(0 <= r <= 1 for r in results)
@@ -395,9 +405,11 @@ class TestNumericalStability:
                 threshold_change = abs(perturbed_threshold - base_threshold)
 
                 # Either no change (stable) or change proportional to perturbation
-                assert (
-                    threshold_change <= abs(perturbation) * 1000
-                ), f"Large threshold change {threshold_change} from small perturbation {perturbation}"
+                assert threshold_change <= abs(perturbation) * 1000, (
+                    f"Large threshold change {threshold_change} from small "
+                    f"perturbation "
+                    f"{perturbation}"
+                )
 
         except ValueError:
             pytest.skip("Small perturbation test not supported")
@@ -427,9 +439,9 @@ class TestNumericalStability:
 
                     # Should handle edge cases gracefully
                     threshold = result.threshold
-                    assert (
-                        0 <= threshold <= 1
-                    ), f"Threshold {threshold} out of bounds for edge case"
+                    assert 0 <= threshold <= 1, (
+                        f"Threshold {threshold} out of bounds for edge case"
+                    )
                     assert not np.isnan(threshold), "NaN threshold for edge case"
                     assert not np.isinf(threshold), "Infinite threshold for edge case"
 
@@ -443,9 +455,9 @@ class TestNumericalStability:
                     )
                     threshold2 = result2.threshold
 
-                    assert (
-                        threshold == threshold2
-                    ), f"Edge case not reproducible: {threshold} vs {threshold2}"
+                    assert threshold == threshold2, (
+                        f"Edge case not reproducible: {threshold} vs {threshold2}"
+                    )
 
                 except ValueError as e:
                     if (
@@ -491,9 +503,9 @@ class TestReproducibilityAcrossPlatforms:
         if len(results) > 1:
             # Should be consistent across array types
             for i in range(1, len(results)):
-                assert (
-                    abs(results[i] - results[0]) < 1e-12
-                ), f"Results vary by array type: {results}"
+                assert abs(results[i] - results[0]) < 1e-12, (
+                    f"Results vary by array type: {results}"
+                )
 
     def test_reproducibility_with_list_vs_array_input(self):
         """Test that list and array inputs produce identical results."""
@@ -523,9 +535,10 @@ class TestReproducibilityAcrossPlatforms:
             # Should be identical
             threshold_list = result_list.threshold
             threshold_array = result_array.threshold
-            assert (
-                threshold_list == threshold_array
-            ), f"List vs array inputs give different results: {threshold_list} vs {threshold_array}"
+            assert threshold_list == threshold_array, (
+                f"List vs array inputs give different results: {threshold_list} vs "
+                f"{threshold_array}"
+            )
 
         except ValueError:
             pytest.skip("List input not supported")
@@ -551,9 +564,10 @@ class TestReproducibilityAcrossPlatforms:
             # All should be identical
             first_threshold = results[0][1]
             for call_num, threshold in results[1:]:
-                assert (
-                    threshold == first_threshold
-                ), f"Call {call_num} gave different result: {threshold} vs {first_threshold}"
+                assert threshold == first_threshold, (
+                    f"Call {call_num} gave different result: {threshold} vs "
+                    f"{first_threshold}"
+                )
 
     def test_order_independence(self):
         """Test that input order doesn't affect results when it shouldn't."""
@@ -581,9 +595,10 @@ class TestReproducibilityAcrossPlatforms:
             # Results should be identical (threshold optimization is order-independent)
             threshold_original = result_original.threshold
             threshold_permuted = result_permuted.threshold
-            assert (
-                threshold_original == threshold_permuted
-            ), f"Order dependence detected: original={threshold_original}, permuted={threshold_permuted}"
+            assert threshold_original == threshold_permuted, (
+                f"Order dependence detected: original={threshold_original}, "
+                f"permuted={threshold_permuted}"
+            )
 
         except ValueError:
             pytest.skip("Order independence test not supported")

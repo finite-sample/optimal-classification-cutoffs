@@ -2,7 +2,8 @@
 
 This module provides extensive testing for edge cases and boundary conditions that
 could cause threshold optimization algorithms to fail or produce suboptimal results.
-The tests cover extreme data distributions, numerical precision limits, error conditions,
+The tests cover extreme data distributions, numerical precision limits, error
+conditions,
 and performance characteristics.
 
 Test Categories:
@@ -115,7 +116,9 @@ class TestLabelDistributionEdgeCases:
 
         # The optimal threshold should likely be between 0.5 and 0.95
         # to capture the single positive example
-        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
+        tp, _tn, fp, fn = confusion_matrix_at_threshold(
+            labels, probabilities, threshold
+        )
 
         # Should be able to achieve some reasonable performance
         precision = tp / (tp + fp) if tp + fp > 0 else 0
@@ -166,11 +169,11 @@ class TestLabelDistributionEdgeCases:
 
         if metric == "accuracy":
             return (tp + tn) / (tp + tn + fp + fn) if tp + tn + fp + fn > 0 else 0
-        elif metric == "precision":
+        if metric == "precision":
             return tp / (tp + fp) if tp + fp > 0 else 0
-        elif metric == "recall":
+        if metric == "recall":
             return tp / (tp + fn) if tp + fn > 0 else 0
-        elif metric == "f1":
+        if metric == "f1":
             precision = tp / (tp + fp) if tp + fp > 0 else 0
             recall = tp / (tp + fn) if tp + fn > 0 else 0
             return (
@@ -178,8 +181,7 @@ class TestLabelDistributionEdgeCases:
                 if precision + recall > 0
                 else 0
             )
-        else:
-            raise ValueError(f"Unknown metric: {metric}")
+        raise ValueError(f"Unknown metric: {metric}")
 
 
 class TestProbabilityDistributionEdgeCases:
@@ -199,25 +201,25 @@ class TestProbabilityDistributionEdgeCases:
             # For precision, optimal threshold might be high to avoid false positives
             if metric == "recall":
                 threshold = result.threshold
-                assert (
-                    0.05 <= threshold <= 0.75
-                ), f"Unexpected threshold {threshold} for {metric}"
+                assert 0.05 <= threshold <= 0.75, (
+                    f"Unexpected threshold {threshold} for {metric}"
+                )
             elif metric == "precision":
                 threshold = result.threshold
-                assert (
-                    0.25 <= threshold <= 0.95
-                ), f"Unexpected threshold {threshold} for {metric}"
+                assert 0.25 <= threshold <= 0.95, (
+                    f"Unexpected threshold {threshold} for {metric}"
+                )
             else:
                 threshold = result.threshold
-                assert (
-                    0.25 <= threshold <= 0.75
-                ), f"Unexpected threshold {threshold} for {metric}"
+                assert 0.25 <= threshold <= 0.75, (
+                    f"Unexpected threshold {threshold} for {metric}"
+                )
 
             # Should achieve high performance
             score = self._compute_metric_score(labels, probabilities, threshold, metric)
-            assert (
-                score >= 0.9
-            ), f"Low score {score} for {metric} with perfect separation"
+            assert score >= 0.9, (
+                f"Low score {score} for {metric} with perfect separation"
+            )
 
     def test_boundary_probabilities(self):
         """Test with probabilities at 0.0 and 1.0."""
@@ -258,12 +260,15 @@ class TestProbabilityDistributionEdgeCases:
         assert 0 <= threshold <= 1
 
         # Should achieve good separation
-        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
+        tp, _tn, fp, fn = confusion_matrix_at_threshold(
+            labels, probabilities, threshold
+        )
 
         # With such clear separation, should have good performance
         precision = tp / (tp + fp) if tp + fp > 0 else 0
         recall = tp / (tp + fn) if tp + fn > 0 else 0
-        assert precision > 0.5 and recall > 0.5
+        assert precision > 0.5
+        assert recall > 0.5
 
     def _compute_metric_score(self, labels, probabilities, threshold, metric):
         """Helper to compute metric score."""
@@ -271,11 +276,11 @@ class TestProbabilityDistributionEdgeCases:
 
         if metric == "accuracy":
             return (tp + tn) / (tp + tn + fp + fn) if tp + tn + fp + fn > 0 else 0
-        elif metric == "precision":
+        if metric == "precision":
             return tp / (tp + fp) if tp + fp > 0 else 0
-        elif metric == "recall":
+        if metric == "recall":
             return tp / (tp + fn) if tp + fn > 0 else 0
-        elif metric == "f1":
+        if metric == "f1":
             precision = tp / (tp + fp) if tp + fp > 0 else 0
             recall = tp / (tp + fn) if tp + fn > 0 else 0
             return (
@@ -283,8 +288,7 @@ class TestProbabilityDistributionEdgeCases:
                 if precision + recall > 0
                 else 0
             )
-        else:
-            raise ValueError(f"Unknown metric: {metric}")
+        raise ValueError(f"Unknown metric: {metric}")
 
 
 class TestNumericalEdgeCases:
@@ -503,10 +507,12 @@ class TestExtremeProbabilityValues:
         for metric in ["f1", "accuracy", "precision", "recall"]:
             result = optimize_thresholds(y_true, pred_prob, metric=metric)
             threshold = result.threshold
-            # Allow small tolerance for edge cases where threshold may be slightly outside [0,1]
+            # Allow small tolerance for edge cases where threshold may be slightly
+            # outside [0,1]
             assert -1e-8 <= threshold <= 1.0 + 1e-8
 
-            # With all probabilities at 0, optimal strategy depends on comparison operator
+            # With all probabilities at 0, optimal strategy depends on comparison
+            # operator
             # Only test confusion matrix if threshold is within valid bounds
             if 0.0 <= threshold <= 1.0:
                 tp, tn, fp, fn = confusion_matrix_at_threshold(
@@ -524,7 +530,8 @@ class TestExtremeProbabilityValues:
             threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
-            # With all probabilities at 1, optimal strategy depends on comparison operator
+            # With all probabilities at 1, optimal strategy depends on comparison
+            # operator
             tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, pred_prob, threshold)
             assert tp + tn + fp + fn == len(y_true)
 
@@ -568,7 +575,8 @@ class TestMulticlassExtremeScenarios:
         result = optimize_thresholds(y_true, pred_prob, metric="f1")
         thresholds = result.thresholds
         assert len(thresholds) == 2
-        # Note: With coordinate ascent and extreme imbalance, thresholds can be outside [0,1]
+        # Note: With coordinate ascent and extreme imbalance, thresholds can be outside
+        # [0,1]
         # This is mathematically correct for margin-based decision rules
         assert all(np.isfinite(t) for t in thresholds), "Thresholds should be finite"
 
@@ -583,7 +591,8 @@ class TestMulticlassExtremeScenarios:
         result = optimize_thresholds(y_true, pred_prob, metric="f1")
         thresholds = result.thresholds
         assert len(thresholds) == 3
-        # Note: With coordinate ascent and extreme imbalance, thresholds can be outside [0,1]
+        # Note: With coordinate ascent and extreme imbalance, thresholds can be outside
+        # [0,1]
         # This is mathematically correct for margin-based decision rules
         assert all(np.isfinite(t) for t in thresholds), "Thresholds should be finite"
 
@@ -604,6 +613,7 @@ class TestMulticlassExtremeScenarios:
         result = optimize_thresholds(y_true, pred_prob, metric="f1")
         thresholds = result.thresholds
         assert len(thresholds) == 3
-        # Note: With coordinate ascent and extreme cases, thresholds can be outside [0,1]
+        # Note: With coordinate ascent and extreme cases, thresholds can be outside
+        # [0,1]
         # This is mathematically correct for margin-based decision rules
         assert all(np.isfinite(t) for t in thresholds), "Thresholds should be finite"

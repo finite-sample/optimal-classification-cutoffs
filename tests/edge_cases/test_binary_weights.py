@@ -177,9 +177,9 @@ class TestWeightedEqualsExpanded:
             (p > threshold_expanded) if comparison == ">" else (p >= threshold_expanded)
         )
 
-        assert np.array_equal(
-            pred_weighted, pred_expanded
-        ), "Weighted and expanded decisions don't match for accuracy"
+        assert np.array_equal(pred_weighted, pred_expanded), (
+            "Weighted and expanded decisions don't match for accuracy"
+        )
 
     def test_fractional_weights_preserved(self):
         """Fractional weights must be preserved without integer casting."""
@@ -202,9 +202,10 @@ class TestWeightedEqualsExpanded:
         total = sum(confusion_values)
 
         # Total should equal sum of weights
-        assert (
-            abs(total - np.sum(w)) < 1e-12
-        ), f"Total confusion matrix count {total} should equal sum of weights {np.sum(w)}"
+        assert abs(total - np.sum(w)) < 1e-12, (
+            f"Total confusion matrix count {total} should equal sum of weights "
+            f"{np.sum(w)}"
+        )
 
         # At least some values should be fractional (not integers)
         has_fractional = any(abs(val - round(val)) > 1e-10 for val in confusion_values)
@@ -297,9 +298,9 @@ class TestWeightScaleInvariance:
             pred_orig = p > threshold_orig
             pred_scaled = p > threshold_scaled
 
-            assert np.array_equal(
-                pred_orig, pred_scaled
-            ), f"Scale invariance violated for scale={scale}"
+            assert np.array_equal(pred_orig, pred_scaled), (
+                f"Scale invariance violated for scale={scale}"
+            )
 
 
 class TestWeightEdgeCases:
@@ -356,9 +357,9 @@ class TestWeightEdgeCases:
             pred_weighted = p > threshold_weighted
             pred_unweighted = p > threshold_unweighted
 
-            assert np.array_equal(
-                pred_weighted, pred_unweighted
-            ), f"Uniform weights {weight_val} should match unweighted"
+            assert np.array_equal(pred_weighted, pred_unweighted), (
+                f"Uniform weights {weight_val} should match unweighted"
+            )
 
     def test_single_nonzero_weight(self):
         """Single non-zero weight should optimize for that sample only."""
@@ -417,7 +418,8 @@ class TestWeightMethodConsistency:
             )
             threshold_brute = result_brute.threshold
 
-            # Decisions should match (allowing small threshold differences due to different
+            # Decisions should match (allowing small threshold differences due to
+            # different
             # threshold selection strategies)
 
             # Compute F1 scores to verify they're equal
@@ -442,7 +444,7 @@ class TestWeightMethodConsistency:
             pass
 
     def test_weights_improve_targeted_performance(self):
-        """Higher weights on specific samples should improve their prediction accuracy."""
+        """Higher weights on samples should improve their prediction accuracy."""
         # Create scenario where weighting specific samples changes the optimal threshold
         y = np.array([0, 0, 1, 1, 0])
         p = np.array([0.3, 0.4, 0.6, 0.7, 0.45])
@@ -465,7 +467,8 @@ class TestWeightMethodConsistency:
         pred_equal = p > threshold_equal
         pred_biased = p > threshold_biased
 
-        # Weighted accuracy should be different (and potentially better on weighted samples)
+        # Weighted accuracy should be different (and potentially better on weighted
+        # samples)
         acc_equal = np.mean(pred_equal == y)
 
         # Compute weighted accuracy for biased case

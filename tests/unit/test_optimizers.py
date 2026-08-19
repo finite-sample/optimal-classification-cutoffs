@@ -21,9 +21,9 @@ def test_get_optimal_threshold_methods():
         from optimal_cutoffs.metrics import compute_metric_at_threshold
 
         f1_score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
-        assert (
-            f1_score >= 0.8
-        ), f"Method {method} achieved F1={f1_score:.6f} with threshold={threshold:.6f}"
+        assert f1_score >= 0.8, (
+            f"Method {method} achieved F1={f1_score:.6f} with threshold={threshold:.6f}"
+        )
 
 
 def test_cv_threshold_optimization():
@@ -68,12 +68,12 @@ def test_piecewise_optimization_correctness():
             threshold_get = result_get.threshold
 
             # Both should be valid thresholds
-            assert (
-                -TOLERANCE <= threshold_find <= 1
-            ), f"Invalid threshold for {metric}: {threshold_find}"
-            assert (
-                -TOLERANCE <= threshold_get <= 1
-            ), f"Invalid threshold for {metric}: {threshold_get}"
+            assert -TOLERANCE <= threshold_find <= 1, (
+                f"Invalid threshold for {metric}: {threshold_find}"
+            )
+            assert -TOLERANCE <= threshold_get <= 1, (
+                f"Invalid threshold for {metric}: {threshold_get}"
+            )
 
             # Both should find decent optima (within reasonable bounds)
             from optimal_cutoffs.metrics import compute_metric_at_threshold
@@ -86,29 +86,31 @@ def test_piecewise_optimization_correctness():
             )
 
             # Both scores should be reasonable (> 0.5 for this test data)
-            assert (
-                score_find > 0.5
-            ), f"Low score for find_optimal_threshold {metric}: {score_find}"
-            assert (
-                score_get > 0.5
-            ), f"Low score for get_optimal_threshold {metric}: {score_get}"
+            assert score_find > 0.5, (
+                f"Low score for find_optimal_threshold {metric}: {score_find}"
+            )
+            assert score_get > 0.5, (
+                f"Low score for get_optimal_threshold {metric}: {score_get}"
+            )
 
-            # The difference should not be too large (allowing for different tie-breaking)
+            # The difference should not be too large (allowing for different
+            # tie-breaking)
             score_diff = abs(score_find - score_get)
-            assert (
-                score_diff < 0.1
-            ), f"Large score difference for {metric}: {score_find:.4f} vs {score_get:.4f}"
+            assert score_diff < 0.1, (
+                f"Large score difference for {metric}: {score_find:.4f} vs "
+                f"{score_get:.4f}"
+            )
 
 
 def test_piecewise_edge_cases():
     """Test edge cases for piecewise optimization."""
 
     # Empty arrays
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Labels cannot be empty"):
         optimize_thresholds([], [], metric="f1")
 
     # Mismatched lengths
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Length mismatch"):
         optimize_thresholds([0, 1], [0.1], metric="f1")
 
     # Single sample

@@ -94,9 +94,10 @@ class TestScoreBasedWorkflows:
         assert abs(threshold - (-2.5)) < 1e-10  # Should be very close to -2.5
         assert score == 1.0  # Perfect F1 for single positive
         # Note: k_star uses 0-based indexing, diagnostic may vary by implementation
-        assert (
-            k in [0, 1]
-        )  # Should predict the single positive sample (allowing for indexing differences)
+        assert k in [
+            0,
+            1,
+        ]  # Should predict the single positive sample, modulo index differences
 
         # All negatives with positive scores
         y_true = [0, 0, 0]

@@ -91,7 +91,7 @@ class TestMulticlassAveragingSemantics:
         assert macro_score == pytest.approx(expected_macro, rel=1e-10)
 
     def test_micro_averaging_identity(self):
-        """Test micro averaging identity: micro = metric(sum(TP), 0, sum(FP), sum(FN))."""
+        """Micro averaging identity: micro = metric(sum(TP), 0, sum(FP), sum(FN))."""
         # Compute pooled confusion matrix
         total_tp = sum(cm[0] for cm in self.cms)
         total_fp = sum(cm[2] for cm in self.cms)
@@ -112,7 +112,7 @@ class TestMulticlassAveragingSemantics:
         assert micro_f1 == pytest.approx(expected_micro_f1, rel=1e-10)
 
     def test_weighted_averaging_identity(self):
-        """Test weighted averaging identity: weighted = sum(score_i * support_i) / sum(support_i)."""
+        """Weighted identity: sum(score_i * support_i) / sum(support_i)."""
         # Get per-class scores and supports
         per_class_scores = multiclass_metric_ovr(self.cms, "f1", average="none")
         supports = [cm[0] + cm[3] for cm in self.cms]  # TP + FN = actual positives
@@ -163,7 +163,7 @@ class TestMulticlassAveragingSemantics:
     def test_invalid_average_raises_error(self):
         """Test that invalid average parameter raises appropriate error."""
         with pytest.raises(
-            ValueError, match="Unknown averaging method.*invalid.*Must be one of"
+            ValueError, match=r"Unknown averaging method.*invalid.*Must be one of"
         ):
             multiclass_metric_ovr(self.cms, "f1", average="invalid")
 
@@ -221,15 +221,15 @@ class TestMulticlassOptimizationAveraging:
             assert len(result_micro.thresholds) == 3
             # Note: With coordinate ascent optimization, thresholds can be outside [0,1]
             # This is mathematically correct for margin-based decision rules
-            assert all(
-                np.isfinite(t) for t in result_macro.thresholds
-            ), "Thresholds should be finite"
-            assert all(
-                np.isfinite(t) for t in result_micro.thresholds
-            ), "Thresholds should be finite"
+            assert all(np.isfinite(t) for t in result_macro.thresholds), (
+                "Thresholds should be finite"
+            )
+            assert all(np.isfinite(t) for t in result_micro.thresholds), (
+                "Thresholds should be finite"
+            )
 
     def test_macro_none_weighted_equivalent(self):
-        """Test that macro, none, and weighted give same results when classes balanced."""
+        """Macro, none, and weighted give same results when classes balanced."""
         # Create balanced dataset
         n_per_class = 50
         true_labs_balanced = np.concatenate(
@@ -288,9 +288,9 @@ class TestMulticlassOptimizationAveraging:
         assert len(result.thresholds) == 3
         # Note: With coordinate ascent optimization, thresholds can be outside [0,1]
         # This is mathematically correct for margin-based decision rules
-        assert all(
-            np.isfinite(t) for t in result.thresholds
-        ), "Thresholds should be finite"
+        assert all(np.isfinite(t) for t in result.thresholds), (
+            "Thresholds should be finite"
+        )
 
     def test_different_averaging_strategies_documented(self):
         """Test that all averaging strategies are properly documented and work."""
@@ -309,9 +309,9 @@ class TestMulticlassOptimizationAveraging:
             assert len(result.thresholds) == 3
             # Note: With coordinate ascent optimization, thresholds can be outside [0,1]
         # This is mathematically correct for margin-based decision rules
-        assert all(
-            np.isfinite(t) for t in result.thresholds
-        ), "Thresholds should be finite"
+        assert all(np.isfinite(t) for t in result.thresholds), (
+            "Thresholds should be finite"
+        )
 
     def test_backward_compatibility(self):
         """Test that default behavior is unchanged."""
@@ -363,9 +363,9 @@ class TestPerformanceImprovements:
         assert len(result.thresholds) == 3
         # Note: With coordinate ascent optimization, thresholds can be outside [0,1]
         # This is mathematically correct for margin-based decision rules
-        assert all(
-            np.isfinite(t) for t in result.thresholds
-        ), "Thresholds should be finite"
+        assert all(np.isfinite(t) for t in result.thresholds), (
+            "Thresholds should be finite"
+        )
 
     def test_large_dataset_performance(self):
         """Test performance improvements on larger datasets."""
@@ -387,9 +387,9 @@ class TestPerformanceImprovements:
         assert len(result.thresholds) == n_classes
         # Note: With coordinate ascent optimization, thresholds can be outside [0,1]
         # This is mathematically correct for margin-based decision rules
-        assert all(
-            np.isfinite(t) for t in result.thresholds
-        ), "Thresholds should be finite"
+        assert all(np.isfinite(t) for t in result.thresholds), (
+            "Thresholds should be finite"
+        )
 
 
 if __name__ == "__main__":

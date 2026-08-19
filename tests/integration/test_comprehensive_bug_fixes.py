@@ -47,7 +47,7 @@ class TestDegenerateCasesFix:
         assert accuracy >= 0.5, "Should achieve reasonable accuracy"
 
     def test_all_negative_optimal_threshold_inclusive(self):
-        """All negatives should return threshold that predicts all negative with '>='."""
+        """All negatives returns a threshold predicting all negative with '>='."""
         y_true = [0, 0, 0, 0]
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
@@ -79,7 +79,7 @@ class TestDegenerateCasesFix:
         assert accuracy >= 0.5, "Should achieve reasonable accuracy"
 
     def test_all_positive_optimal_threshold_inclusive(self):
-        """All positives should return threshold that predicts all positive with '>='."""
+        """All positives returns a threshold predicting all positive with '>='."""
         y_true = [1, 1, 1, 1]
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
@@ -136,9 +136,9 @@ class TestMicroAccuracyFix:
             multiclass_metric_ovr(cms, "accuracy", "micro")
 
         # Exclusive accuracy should be reasonable (0-1 range)
-        assert (
-            0 <= exclusive_acc <= 1
-        ), f"Exclusive accuracy {exclusive_acc} out of range"
+        assert 0 <= exclusive_acc <= 1, (
+            f"Exclusive accuracy {exclusive_acc} out of range"
+        )
 
     def test_micro_accuracy_optimization(self):
         """Micro accuracy optimization should route through exclusive predictions."""
@@ -187,12 +187,12 @@ class TestDinkelbachComparisonSupport:
         thresh_main_excl = result_main_excl.threshold
         thresh_main_incl = result_main_incl.threshold
         # Allow some tolerance for numerical differences between internal and main API
-        assert (
-            abs(thresh_main_excl - thresh_excl) < 0.05
-        ), f"Thresholds should be close: {thresh_main_excl} vs {thresh_excl}"
-        assert (
-            abs(thresh_main_incl - thresh_incl) < 0.05
-        ), f"Thresholds should be close: {thresh_main_incl} vs {thresh_incl}"
+        assert abs(thresh_main_excl - thresh_excl) < 0.05, (
+            f"Thresholds should be close: {thresh_main_excl} vs {thresh_excl}"
+        )
+        assert abs(thresh_main_incl - thresh_incl) < 0.05, (
+            f"Thresholds should be close: {thresh_main_incl} vs {thresh_incl}"
+        )
 
     def test_dinkelbach_tied_probabilities(self):
         """Dinkelbach should handle tied probabilities correctly based on comparison."""
@@ -346,7 +346,7 @@ class TestMicroOptimizationDocumentation:
         assert all(0.0 <= t <= 1.0 for t in thresholds)
 
     def test_micro_minimize_no_warning(self):
-        """minimize with micro averaging should not warn (it does joint optimization)."""
+        """minimize with micro averaging must not warn; it optimizes jointly."""
         np.random.seed(42)
         y_true = np.random.randint(0, 3, 20)
         pred_prob = np.random.rand(20, 3)
@@ -441,9 +441,9 @@ class TestExclusivePredictionRule:
         )
 
         # Should fall back to class 2 (highest probability)
-        assert (
-            predictions[0] == 2
-        ), "Should fall back to argmax when all margins negative"
+        assert predictions[0] == 2, (
+            "Should fall back to argmax when all margins negative"
+        )
 
     def test_exclusive_accuracy_differs_from_argmax(self):
         """Exclusive accuracy can differ from standard argmax accuracy."""
@@ -468,7 +468,8 @@ class TestExclusivePredictionRule:
         assert 0 <= exclusive_acc <= 1
         assert 0 <= argmax_acc <= 1
         print(
-            f"Exclusive accuracy: {exclusive_acc:.3f}, Argmax accuracy: {argmax_acc:.3f}"
+            f"Exclusive accuracy: {exclusive_acc:.3f}, Argmax accuracy: "
+            f"{argmax_acc:.3f}"
         )
 
 
@@ -513,9 +514,11 @@ class TestPropertyBased:
         )
         threshold_expanded = result_expanded.threshold
 
-        # Should be exactly equal or very close (allowing only tiny eps for tie semantics)
+        # Should be exactly equal or very close (allowing only tiny eps for tie
+        # semantics)
         assert abs(threshold_weighted - threshold_expanded) < 1e-10, (
-            f"Weighted ({threshold_weighted:.10f}) and expanded ({threshold_expanded:.10f}) "
+            f"Weighted ({threshold_weighted:.10f}) and expanded "
+            f"({threshold_expanded:.10f}) "
             f"approaches should be nearly identical (integer weight expansion)"
         )
 
@@ -570,8 +573,9 @@ class TestPropertyBased:
         if np.any(np.isclose(pred_prob, thresh_excl, atol=1e-10)):
             np.isclose(pred_prob, thresh_excl, atol=1e-10)
             # For tied probabilities: '>' excludes, '>=' includes
-            # (This assertion might not always hold due to optimization, but test basic consistency)
-            pass  # Just verify no crashes occur
+            # (This assertion might not always hold due to optimization, but test basic
+            # consistency)
+            # Just verify no crashes occur
 
         # Both should produce valid results
         assert 0 <= thresh_excl <= 1
@@ -631,7 +635,8 @@ class TestRegressionPrevention:
                 y_true,
                 pred_prob,
                 metric="f1",
-                method="independent",  # Use independent method to support both comparison operators
+                # independent is the method that supports both comparison operators
+                method="independent",
                 comparison=comparison,
                 sample_weight=sample_weight,
             )
@@ -640,9 +645,9 @@ class TestRegressionPrevention:
             assert len(thresholds) == 3
             # Note: With coordinate ascent optimization, thresholds can be outside [0,1]
             # This is mathematically correct for margin-based decision rules
-            assert all(
-                np.isfinite(t) for t in thresholds
-            ), "Thresholds should be finite"
+            assert all(np.isfinite(t) for t in thresholds), (
+                "Thresholds should be finite"
+            )
 
             # Verify confusion matrices work
             cms = multiclass_confusion_matrices_at_thresholds(
@@ -655,7 +660,10 @@ class TestRegressionPrevention:
 
             assert len(cms) == 3
             for tp, tn, fp, fn in cms:
-                assert tp >= 0 and tn >= 0 and fp >= 0 and fn >= 0
+                assert tp >= 0
+                assert tn >= 0
+                assert fp >= 0
+                assert fn >= 0
 
     def test_dinkelbach_calibration_sanity(self):
         """Sanity check that Dinkelbach gives reasonable results for calibrated data."""
@@ -729,5 +737,6 @@ class TestRegressionPrevention:
 
                     except Exception as e:
                         pytest.fail(
-                            f"Method {method} with {comparison} failed on {y_true}, {pred_prob}: {e}"
+                            f"Method {method} with {comparison} failed on {y_true}, "
+                            f"{pred_prob}: {e}"
                         )

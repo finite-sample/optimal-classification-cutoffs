@@ -19,27 +19,20 @@ def threshold(
 ) -> float:
     """Compute binary Bayes-optimal threshold from costs and benefits.
 
-    Parameters
-    ----------
-    cost_fp : float
-        Cost of false positive (predicting positive when actually negative)
-    cost_fn : float
-        Cost of false negative (predicting negative when actually positive)
-    benefit_tp : float
-        Benefit of true positive (predicting positive correctly)
-    benefit_tn : float
-        Benefit of true negative (predicting negative correctly)
+    Args:
+        cost_fp: Cost of false positive (predicting positive when actually negative)
+        cost_fn: Cost of false negative (predicting negative when actually positive)
+        benefit_tp: Benefit of true positive (predicting positive correctly)
+        benefit_tn: Benefit of true negative (predicting negative correctly)
 
-    Returns
-    -------
-    float
-        Optimal threshold τ* = (benefit_tn + cost_fp) / [(benefit_tp + cost_fn) + (benefit_tn + cost_fp)]
+    Returns:
+        Optimal threshold τ* = (benefit_tn + cost_fp) / [(benefit_tp + cost_fn) +
+        (benefit_tn + cost_fp)]
 
-    Examples
-    --------
-    >>> # FN costs 5x more than FP
-    >>> t = threshold(cost_fp=1.0, cost_fn=5.0)
-    >>> # Will be < 0.5 (more conservative, avoids costly false negatives)
+    Examples:
+        >>> # FN costs 5x more than FP
+        >>> t = threshold(cost_fp=1.0, cost_fn=5.0)
+        >>> # Will be < 0.5 (more conservative, avoids costly false negatives)
     """
     from ..bayes_core import bayes_optimal_threshold
 
@@ -56,24 +49,20 @@ def thresholds_from_costs(
 ) -> np.ndarray:
     """Compute per-class Bayes-optimal thresholds from OvR costs.
 
-    Parameters
-    ----------
-    fp_costs : array-like
-        False positive costs per class
-    fn_costs : array-like
-        False negative costs per class
+    Args:
+        fp_costs: False positive costs per class
+        fn_costs: False negative costs per class
+        **kwargs: Forwarded to
+            :func:`~optimal_cutoffs.bayes_core.bayes_thresholds_from_costs`.
 
-    Returns
-    -------
-    np.ndarray
+    Returns:
         Per-class optimal thresholds
 
-    Examples
-    --------
-    >>> # Different costs per class
-    >>> fp_costs = [1.0, 2.0, 0.5]  # Class 1 FP costs 2x more
-    >>> fn_costs = [5.0, 1.0, 10.0] # Class 2 FN costs 10x more
-    >>> thresholds = thresholds_from_costs(fp_costs, fn_costs)
+    Examples:
+        >>> # Different costs per class
+        >>> fp_costs = [1.0, 2.0, 0.5]  # Class 1 FP costs 2x more
+        >>> fn_costs = [5.0, 1.0, 10.0] # Class 2 FN costs 10x more
+        >>> thresholds = thresholds_from_costs(fp_costs, fn_costs)
     """
     from ..bayes_core import bayes_thresholds_from_costs
 
@@ -86,22 +75,17 @@ def policy(cost_matrix: NDArray) -> OptimizationResult:
     This is for general decision making where thresholds aren't
     the right abstraction.
 
-    Parameters
-    ----------
-    cost_matrix : array-like
-        Cost matrix (n_classes, n_actions)
-        cost_matrix[i, j] = cost of taking action j when true class is i
+    Args:
+        cost_matrix: Cost matrix (n_classes, n_actions)
+            cost_matrix[i, j] = cost of taking action j when true class is i
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Policy with .predict() method (no .thresholds)
 
-    Examples
-    --------
-    >>> costs = [[0, 1, 10], [5, 0, 1], [50, 10, 0]]
-    >>> policy = policy(costs)
-    >>> decisions = policy.predict(probabilities)
+    Examples:
+        >>> costs = [[0, 1, 10], [5, 0, 1], [50, 10, 0]]
+        >>> policy = policy(costs)
+        >>> decisions = policy.predict(probabilities)
     """
     from ..bayes_core import bayes_optimal_decisions
 
@@ -114,9 +98,9 @@ def policy(cost_matrix: NDArray) -> OptimizationResult:
 # Note: BayesOptimal and UtilitySpec imported at top for power users
 
 __all__ = [
-    "threshold",
-    "thresholds_from_costs",
-    "policy",
     "BayesOptimal",
     "UtilitySpec",
+    "policy",
+    "threshold",
+    "thresholds_from_costs",
 ]

@@ -72,7 +72,7 @@ class TestBinaryClassificationWorkflows:
             assert_valid_threshold(threshold)
 
             # Compute achieved F1 score
-            tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, y_prob, threshold)
+            tp, _tn, fp, fn = confusion_matrix_at_threshold(y_true, y_prob, threshold)
             precision = tp / (tp + fp) if tp + fp > 0 else 0.0
             recall = tp / (tp + fn) if tp + fn > 0 else 0.0
             f1 = (
@@ -471,7 +471,7 @@ class TestBinaryEdgeCaseIntegration:
         assert_valid_threshold(threshold)
 
         # Should achieve perfect classification
-        tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, y_prob, threshold)
+        tp, tn, _fp, _fn = confusion_matrix_at_threshold(y_true, y_prob, threshold)
         assert tp + tn == 2  # Perfect accuracy possible
 
     def test_all_same_predictions_integration(self):

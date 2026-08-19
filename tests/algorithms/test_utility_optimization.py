@@ -44,7 +44,8 @@ class TestLinearUtilityMetrics:
         """Test cost metric convenience wrapper."""
         metric = make_cost_metric(fp_cost=1.0, fn_cost=5.0, tp_benefit=2.0)
 
-        # Should be equivalent to make_linear_counts_metric(w_tp=2.0, w_fp=-1.0, w_fn=-5.0)
+        # Should be equivalent to make_linear_counts_metric(w_tp=2.0, w_fp=-1.0,
+        # w_fn=-5.0)
         tp, tn, fp, fn = 10, 20, 3, 2
         result = metric(tp, tn, fp, fn)
         expected = 2.0 * 10 + 0.0 * 20 + (-1.0) * 3 + (-5.0) * 2
@@ -122,7 +123,8 @@ class TestUtilityOptimization:
                 y, p, test_thresh, comparison=">="
             )
             utility_test = 0 * tp_test + 0 * tn_test + (-1) * fp_test + (-5) * fn_test
-            # Allow for reasonable differences due to discrete optimization and local optima
+            # Allow for reasonable differences due to discrete optimization and local
+            # optima
             # The optimization should be reasonably close to optimal
             assert utility_test <= utility_score + 10  # More reasonable tolerance
 
@@ -227,7 +229,7 @@ class TestUtilityMetricIntegration:
         assert agreement > 0.6  # More reasonable expectation
 
     def test_scale_invariance(self):
-        """Test that scaling all utilities by positive constant doesn't change optimum."""
+        """Scaling all utilities by positive constant doesn't change optimum."""
         np.random.seed(100)
         n = 500
         p = np.random.uniform(0, 1, size=n)
@@ -261,7 +263,8 @@ class TestUtilityMetricIntegration:
             else:
                 pred = (p >= result1.threshold).astype(int)
 
-            # Should produce valid predictions (not a strong test, but checks basic functionality)
+            # Should produce valid predictions (not a strong test, but checks basic
+            # functionality)
             assert len(pred) == len(y)
             assert all(pred_val in [0, 1] for pred_val in pred)
 
