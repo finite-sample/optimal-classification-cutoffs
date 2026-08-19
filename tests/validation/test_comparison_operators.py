@@ -12,7 +12,7 @@ from optimal_cutoffs import optimize_thresholds
 def confusion_matrix_at_threshold(
     y_true, y_prob, threshold, sample_weight=None, comparison=">="
 ):
-    """Helper function to compute confusion matrix at a threshold with comparison operator."""
+    """Compute confusion matrix at a threshold with comparison operator."""
     if comparison == ">=":
         y_pred = (y_prob >= threshold).astype(int)
     elif comparison == ">":
@@ -24,9 +24,8 @@ def confusion_matrix_at_threshold(
     if cm.size == 4:
         tn, fp, fn, tp = cm.ravel()
         return tp, tn, fp, fn
-    else:
-        # Handle edge cases where not all classes are present
-        return 0, 0, 0, 0
+    # Handle edge cases where not all classes are present
+    return 0, 0, 0, 0
 
 
 def multiclass_confusion_matrices_at_thresholds(
@@ -74,10 +73,16 @@ class TestComparisonOperators:
 
         # Verify the results make sense
         # For ">": predictions are [0, 0, 1, 0] -> TP=0, TN=1, FP=1, FN=2
-        assert tp_gt == 0 and tn_gt == 1 and fp_gt == 1 and fn_gt == 2
+        assert tp_gt == 0
+        assert tn_gt == 1
+        assert fp_gt == 1
+        assert fn_gt == 2
 
         # For ">=": predictions are [0, 1, 1, 1] -> TP=2, TN=1, FP=1, FN=0
-        assert tp_gte == 2 and tn_gte == 1 and fp_gte == 1 and fn_gte == 0
+        assert tp_gte == 2
+        assert tn_gte == 1
+        assert fp_gte == 1
+        assert fn_gte == 0
 
         # Verify they are different
         assert (tp_gt, tn_gt, fp_gt, fn_gt) != (tp_gte, tn_gte, fp_gte, fn_gte)
@@ -139,8 +144,14 @@ class TestComparisonOperators:
             tp_gte, tn_gte, fp_gte, fn_gte = cms_gte[i]
 
             # All values should be non-negative
-            assert tp_gt >= 0 and tn_gt >= 0 and fp_gt >= 0 and fn_gt >= 0
-            assert tp_gte >= 0 and tn_gte >= 0 and fp_gte >= 0 and fn_gte >= 0
+            assert tp_gt >= 0
+            assert tn_gt >= 0
+            assert fp_gt >= 0
+            assert fn_gt >= 0
+            assert tp_gte >= 0
+            assert tn_gte >= 0
+            assert fp_gte >= 0
+            assert fn_gte >= 0
 
             # Total should equal number of samples
             assert tp_gt + tn_gt + fp_gt + fn_gt == 6
@@ -171,7 +182,8 @@ class TestComparisonOperators:
         assert len(thresh_gt.thresholds) == n_classes
         assert len(thresh_gte.thresholds) == n_classes
 
-        # All thresholds should be finite (coordinate ascent can produce thresholds outside [0,1])
+        # All thresholds should be finite (coordinate ascent can produce thresholds
+        # outside [0,1])
         assert np.all(np.isfinite(thresh_gt.thresholds)), "Thresholds should be finite"
         assert np.all(np.isfinite(thresh_gte.thresholds)), "Thresholds should be finite"
 
@@ -202,14 +214,20 @@ class TestComparisonOperators:
             true_labels, pred_probs, threshold, comparison=">"
         )
         # Expected: predictions=[0,0,0,0], so TP=0, TN=2, FP=0, FN=2
-        assert tp_gt == 0 and tn_gt == 2 and fp_gt == 0 and fn_gt == 2
+        assert tp_gt == 0
+        assert tn_gt == 2
+        assert fp_gt == 0
+        assert fn_gt == 2
 
         # With ">=", all predictions should be positive (1)
         tp_gte, tn_gte, fp_gte, fn_gte = confusion_matrix_at_threshold(
             true_labels, pred_probs, threshold, comparison=">="
         )
         # Expected: predictions=[1,1,1,1], so TP=2, TN=0, FP=2, FN=0
-        assert tp_gte == 2 and tn_gte == 0 and fp_gte == 2 and fn_gte == 0
+        assert tp_gte == 2
+        assert tn_gte == 0
+        assert fp_gte == 2
+        assert fn_gte == 0
 
     def test_comparison_operators_with_sample_weights(self):
         """Test that comparison operators work correctly with sample weights."""

@@ -17,7 +17,7 @@ from optimal_cutoffs.metrics_core import (
 
 
 class TestCostMatrixOrientation:
-    """optimize_decisions documents cost_matrix[i, j] = cost of predicting j when true is i."""
+    """optimize_decisions documents cost_matrix[i, j]: predicting j when truth is i."""
 
     def test_readme_cost_matrix_orientation(self):
         """README example: [[0, 1], [10, 0]] means FN costs 10x more than FP.
@@ -37,7 +37,7 @@ class TestCostMatrixOrientation:
         np.testing.assert_array_equal(got, expected)
 
     def test_cost_matrix_minimises_documented_cost(self):
-        """Decisions must minimise mean cost_matrix[true, pred], the documented semantics."""
+        """Decisions minimise mean cost_matrix[true, pred], as documented."""
         rng = np.random.default_rng(0)
         p = rng.uniform(0, 1, 20000)
         scores = np.column_stack([1 - p, p])
@@ -59,7 +59,7 @@ class TestCostMatrixOrientation:
         )
 
     def test_asymmetric_three_class_cost_matrix(self):
-        """Rows are true classes: row i says what it costs to predict each j when truth is i."""
+        """Rows are true classes: row i costs predicting each j when truth is i."""
         # Predicting class 0 is catastrophic when the truth is class 2.
         cost_matrix = np.array(
             [
@@ -76,7 +76,8 @@ class TestCostMatrixOrientation:
         expected = np.argmin(expected_cost, axis=1)
 
         np.testing.assert_array_equal(got, expected)
-        # Expected costs by action: 0 -> 0.35*100 + 0.05 = 35.05, 1 -> 0.60 + 0.35 = 0.95,
+        # Expected costs by action: 0 -> 0.35*100 + 0.05 = 35.05, 1 -> 0.60 + 0.35 =
+        # 0.95,
         # 2 -> 0.60 + 0.05 = 0.65. The catastrophic true-car/predict-dog entry must push
         # the decision away from action 0.
         assert got[0] == 2
@@ -85,12 +86,16 @@ class TestCostMatrixOrientation:
 class TestAutoSelectsExactMethodForPiecewiseMetrics:
     """README: 'Exact solutions guaranteed for piecewise-constant metrics'."""
 
-    @pytest.mark.parametrize("metric", ["f1", "accuracy", "precision", "recall", "iou", "specificity"])
+    @pytest.mark.parametrize(
+        "metric", ["f1", "accuracy", "precision", "recall", "iou", "specificity"]
+    )
     def test_auto_uses_sort_scan_for_piecewise_vectorized_metrics(self, metric):
-        assert is_piecewise_metric(metric) and has_vectorized_implementation(metric)
+        assert is_piecewise_metric(metric)
+        assert has_vectorized_implementation(metric)
         method, _ = select_method_with_explanation(Task.BINARY, metric, 100)
         assert method == "sort_scan", (
-            f"{metric} is piecewise with a vectorized implementation but auto chose {method}"
+            f"{metric} is piecewise with a vectorized implementation but auto chose "
+            f"{method}"
         )
 
     @pytest.mark.parametrize("metric", ["accuracy", "iou", "specificity"])
@@ -106,7 +111,9 @@ class TestAutoSelectsExactMethodForPiecewiseMetrics:
             exact = optimize_thresholds(y, s, metric=metric, method="sort_scan")
             if exact.scores[0] > auto.scores[0] + 1e-12:
                 n_worse += 1
-        assert n_worse == 0, f"auto was suboptimal for {metric} on {n_worse}/25 datasets"
+        assert n_worse == 0, (
+            f"auto was suboptimal for {metric} on {n_worse}/25 datasets"
+        )
 
 
 class TestCrossValidateReportsHeldOutScores:
@@ -130,8 +137,11 @@ class TestCrossValidateReportsHeldOutScores:
         thr, sc = cv.cross_validate(y, s, metric="f1", cv=5, random_state=0)
 
         splitter = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
-        for (_, te), t, reported in zip(splitter.split(y, y), thr, sc, strict=True):
-            honest = f1_score(y[te], (s[te] > t).astype(int), zero_division=0)
+        folds = zip(splitter.split(y, y), thr, sc, strict=True)
+        for (_, test_idx), t, reported in folds:
+            honest = f1_score(
+                y[test_idx], (s[test_idx] > t).astype(int), zero_division=0
+            )
             assert reported == pytest.approx(honest, abs=1e-9), (
                 f"reported fold score {reported:.6f} != metric of returned "
                 f"threshold {t:.6f} on the held-out fold ({honest:.6f})"
@@ -149,15 +159,15 @@ class TestCrossValidateReportsHeldOutScores:
         y = rng.integers(0, 2, n)
         s = np.clip(rng.beta(2, 5, n) + 0.35 * y, 0, 1)
 
-        thr, sc = cv.cross_validate(y, s, metric="f1", cv=5, random_state=0)
+        _thr, sc = cv.cross_validate(y, s, metric="f1", cv=5, random_state=0)
         splitter = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
 
         test_optima = [
             max(
-                f1_score(y[te], (s[te] > c).astype(int), zero_division=0)
-                for c in np.unique(s[te])
+                f1_score(y[test_idx], (s[test_idx] > c).astype(int), zero_division=0)
+                for c in np.unique(s[test_idx])
             )
-            for _, te in splitter.split(y, y)
+            for _, test_idx in splitter.split(y, y)
         ]
         # A held-out score can coincidentally equal the fold optimum, but not on every
         # fold of a dataset with this much threshold variation.
@@ -168,7 +178,7 @@ class TestCrossValidateReportsHeldOutScores:
 
 
 class TestBayesModeUsesAllDocumentedUtilityKeys:
-    """optimize_thresholds documents utility keys 'tp', 'tn', 'fp', 'fn' for mode='bayes'."""
+    """optimize_thresholds documents keys 'tp', 'tn', 'fp', 'fn' for mode='bayes'."""
 
     def test_bayes_mode_honours_tp_and_tn(self):
         utility = {"tp": 10.0, "tn": 1.0, "fp": -1.0, "fn": -5.0}

@@ -43,11 +43,14 @@ ruff check optimal_cutoffs/
 # Apply code formatting
 ruff format optimal_cutoffs/
 
-# Run docstring linting
-uv run pydoclint optimal_cutoffs/
+# Run docstring linting (Google style, no baseline — it must come back clean)
+uvx --from pydoclint==0.9.1 pydoclint optimal_cutoffs/
 
-# Generate new baseline for pydoclint (after fixing violations)
-uv run pydoclint --generate-baseline=True optimal_cutoffs/
+# Type checking
+uv run pyright
+
+# Full py-canon conformance sweep
+uvx preen check --strict
 ```
 
 ### Examples
@@ -173,7 +176,7 @@ This approach maintains the benefits of optimized thresholds while ensuring ever
 - **Modular design**: Separate concerns (optimization, metrics, validation)
 - **Registry pattern**: Extensible metric system
 - **Type safety**: Comprehensive type annotations
-- **Documentation**: Docstrings follow NumPy style
+- **Documentation**: Docstrings follow Google style (py-canon standard)
 - **Error handling**: Informative error messages with context
 
 ### Performance Considerations

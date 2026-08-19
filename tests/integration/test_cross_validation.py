@@ -113,9 +113,9 @@ class TestBasicCrossValidation:
 
         # Scores should be reasonable for structured data
         mean_score = np.mean(scores)
-        assert (
-            mean_score > 0.3
-        ), f"Mean F1 score {mean_score:.3f} too low for structured data"
+        assert mean_score > 0.3, (
+            f"Mean F1 score {mean_score:.3f} too low for structured data"
+        )
 
         # Thresholds should be reasonable
         for threshold in thresholds:
@@ -240,7 +240,8 @@ class TestMultipleInvalidParameters:
         """Test that the first invalid parameter is reported."""
         y_true, y_prob = _generate_test_data()
 
-        # Both cv and metric are invalid, should report metric error first (validation order)
+        # Both cv and metric are invalid, should report metric error first (validation
+        # order)
         with pytest.raises(ValueError, match="Unknown metric"):
             cross_validate(y_true, y_prob, cv=1, metric="invalid")
 
@@ -252,7 +253,7 @@ class TestErrorMessageQuality:
         """Test that CV validation errors have helpful messages."""
         y_true, y_prob = _generate_test_data()
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="cross-validation") as exc_info:
             cross_validate(y_true, y_prob, cv=0)
 
         error_msg = str(exc_info.value)
@@ -270,7 +271,7 @@ class TestPerformanceImprovement:
 
         # Early validation should fail very quickly
         start_time = time.time()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="cross-validation"):
             cross_validate(y_true, y_prob, cv=0)
         early_time = time.time() - start_time
 
@@ -285,7 +286,7 @@ class TestThresholdAveraging:
         """Test that nested CV averages thresholds rather than selecting best."""
         y_true, y_prob = _generate_cv_data(80, random_state=42)
 
-        thresholds, scores = nested_cross_validate(
+        thresholds, _scores = nested_cross_validate(
             y_true, y_prob, outer_cv=3, inner_cv=3, random_state=42
         )
 
@@ -325,10 +326,10 @@ class TestStatisticalSoundness:
 
         # This is tested implicitly by using different random states
         # and ensuring consistent results
-        thresholds1, scores1 = nested_cross_validate(
+        _thresholds1, scores1 = nested_cross_validate(
             y_true, y_prob, outer_cv=3, inner_cv=3, random_state=42
         )
-        thresholds2, scores2 = nested_cross_validate(
+        _thresholds2, scores2 = nested_cross_validate(
             y_true, y_prob, outer_cv=3, inner_cv=3, random_state=42
         )
 
@@ -362,6 +363,7 @@ class TestRobustness:
             assert 0.0 <= threshold <= 1.0
         for score in scores:
             assert 0.0 <= score <= 1.0
+
 
 class TestCrossValidationWithWeights:
     """Test cross-validation with sample weights."""
@@ -476,7 +478,7 @@ class TestCrossValidationPerformance:
 
         start_time = time.time()
 
-        thresholds, scores = cross_validate(y_true, y_prob, cv=5, random_state=42)
+        _thresholds, _scores = cross_validate(y_true, y_prob, cv=5, random_state=42)
 
         duration = time.time() - start_time
         assert duration < 5.0, f"CV took {duration:.3f}s, too slow"
@@ -490,7 +492,7 @@ class TestCrossValidationErrorHandling:
         y_true = np.array([0, 1, 0])
         y_prob = np.array([0.1, 0.9])  # Wrong length
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="n_splits"):
             cross_validate(y_true, y_prob, cv=3)
 
 

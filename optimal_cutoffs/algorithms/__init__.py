@@ -24,15 +24,15 @@ from .multilabel import macro_independent, micro_coordinate_ascent
 
 __all__ = [
     "binary",
-    "multiclass",
-    "multilabel",
-    "expected",
-    "exact_f1",
-    "scipy_optimize",
-    "gradient_ascent",
-    "ovr_independent",
-    "ovr_margin",
     "coordinate_ascent",
+    "exact_f1",
+    "expected",
+    "gradient_ascent",
     "macro_independent",
     "micro_coordinate_ascent",
+    "multiclass",
+    "multilabel",
+    "ovr_independent",
+    "ovr_margin",
+    "scipy_optimize",
 ]

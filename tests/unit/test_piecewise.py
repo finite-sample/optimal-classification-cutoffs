@@ -288,7 +288,8 @@ class TestThresholdComputation:
         """Test midpoint computation at array boundaries."""
         p_sorted = np.array([0.9, 0.7, 0.5])
 
-        # Last cut (k=3), no right neighbor - want to include all items (0,1,2) as positive
+        # Last cut (k=3), no right neighbor - want to include all items (0,1,2) as
+        # positive
         # For p > threshold to include item with prob 0.5, need threshold < 0.5
         threshold = _compute_threshold_midpoint(p_sorted, 3, False)  # ">" -> False
         assert threshold < 0.5  # Should be nextafter(0.5, -inf) to include 0.5 with ">"
@@ -405,9 +406,9 @@ class TestBackwardCompatibility:
                 )
 
                 # Should be valid threshold
-                assert (
-                    0 <= result_new.threshold <= 1
-                ), f"Invalid threshold for {metric}: {result_new.threshold}"
+                assert 0 <= result_new.threshold <= 1, (
+                    f"Invalid threshold for {metric}: {result_new.threshold}"
+                )
 
     def test_piecewise_vs_unique_scan(self):
         """Test piecewise optimization matches unique_scan method."""
@@ -426,7 +427,8 @@ class TestBackwardCompatibility:
                 y_true, pred_prob, metric=metric, method="sort_scan"
             )
 
-            # Should get very close results (allowing for midpoint vs exact probability differences)
+            # Should get very close results (allowing for midpoint vs exact probability
+            # differences)
             threshold = result.threshold
             assert 0 <= result_piecewise.threshold <= 1
             assert 0 <= threshold <= 1
@@ -447,8 +449,11 @@ class TestBackwardCompatibility:
                 0.2  # Allow up to 20% difference for legitimate algorithm differences
             )
             assert abs(score_piecewise - score_smart) < tolerance, (
-                f"Large score mismatch for {metric}: {score_piecewise} vs {score_smart} "
-                f"(difference: {abs(score_piecewise - score_smart):.6f}, threshold_piecewise: {result_piecewise.threshold}, threshold_smart: {threshold})"
+                f"Large score mismatch for {metric}: {score_piecewise} vs "
+                f"{score_smart} "
+                f"(difference: {abs(score_piecewise - score_smart):.6f}, "
+                f"threshold_piecewise: {result_piecewise.threshold}, threshold_smart: "
+                f"{threshold})"
             )
 
     def test_sample_weights_compatibility(self):
@@ -488,7 +493,7 @@ class TestPerformance:
         assert -TOLERANCE <= result.threshold <= 1
 
     def test_performance_many_unique_values(self):
-        """Test performance with many unique probability values (worst case for old approach)."""
+        """Performance with many unique probabilities: worst case for the old code."""
         n = 1000
         y_true = np.random.randint(0, 2, n)
         pred_prob = np.linspace(0, 1, n)  # All unique values
@@ -508,7 +513,7 @@ class TestPropertyBasedComparison:
     """Property-based tests comparing piecewise optimization against brute force."""
 
     def brute_force_midpoints(self, y, p, metric_fn):
-        """Brute force reference implementation that evaluates metric at optimal thresholds.
+        """Brute-force reference that evaluates the metric at optimal thresholds.
 
         This function evaluates the metric at thresholds that correspond exactly
         to the cuts tested by the sort-and-scan algorithm: midpoints between adjacent
@@ -583,7 +588,7 @@ class TestPropertyBasedComparison:
         seed=st.integers(min_value=0, max_value=2**32 - 1),
     )
     def test_sortscan_matches_bruteforce_f1(self, n, seed):
-        """Test that sort-and-scan F1 optimization matches brute force over midpoints."""
+        """Sort-and-scan F1 optimization matches brute force over midpoints."""
         rng = np.random.default_rng(seed)
         p = rng.uniform(0, 1, size=n)
 
@@ -598,12 +603,12 @@ class TestPropertyBasedComparison:
         _t_scan, s_scan = result_scan.threshold, result_scan.score
 
         # Test brute force over midpoints
-        t_br, s_br = self.brute_force_midpoints(y, p, get_metric_function("f1"))
+        _t_br, s_br = self.brute_force_midpoints(y, p, get_metric_function("f1"))
 
         # The thresholds may differ (due to plateaus), but best scores must match
-        assert (
-            pytest.approx(s_scan, rel=0, abs=1e-12) == s_br
-        ), f"F1 score mismatch: sort-scan={s_scan:.10f} vs brute-force={s_br:.10f}"
+        assert pytest.approx(s_scan, rel=0, abs=1e-12) == s_br, (
+            f"F1 score mismatch: sort-scan={s_scan:.10f} vs brute-force={s_br:.10f}"
+        )
 
     @settings(deadline=None, max_examples=200)
     @given(
@@ -611,7 +616,7 @@ class TestPropertyBasedComparison:
         seed=st.integers(min_value=0, max_value=2**32 - 1),
     )
     def test_sortscan_matches_bruteforce_accuracy(self, n, seed):
-        """Test that sort-and-scan accuracy optimization matches brute force over midpoints."""
+        """Sort-and-scan accuracy optimization matches brute force over midpoints."""
         rng = np.random.default_rng(seed)
         p = rng.uniform(0, 1, size=n)
 
@@ -626,9 +631,10 @@ class TestPropertyBasedComparison:
         _t_scan, s_scan = result_scan.threshold, result_scan.score
 
         # Test brute force over midpoints
-        t_br, s_br = self.brute_force_midpoints(y, p, get_metric_function("accuracy"))
+        _t_br, s_br = self.brute_force_midpoints(y, p, get_metric_function("accuracy"))
 
         # The thresholds may differ (due to plateaus), but best scores must match
-        assert (
-            pytest.approx(s_scan, rel=0, abs=1e-12) == s_br
-        ), f"Accuracy score mismatch: sort-scan={s_scan:.10f} vs brute-force={s_br:.10f}"
+        assert pytest.approx(s_scan, rel=0, abs=1e-12) == s_br, (
+            f"Accuracy score mismatch: sort-scan={s_scan:.10f} vs "
+            f"brute-force={s_br:.10f}"
+        )

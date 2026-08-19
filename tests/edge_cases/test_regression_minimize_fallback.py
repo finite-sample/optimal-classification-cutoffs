@@ -13,12 +13,14 @@ from optimal_cutoffs.metrics import compute_metric_at_threshold
 
 
 class TestMinimizeFallbackRegression:
-    """Test the minimize_scalar fallback mechanism that was implemented to fix suboptimal results."""
+    """Minimize_scalar fallback mechanism that was implemented to fix suboptimal
+    results."""
 
     def test_f1_minimize_scalar_fallback_case(self):
         """Test a specific case where minimize_scalar returns suboptimal F1 threshold.
 
-        This reproduces the exact scenario that the fallback mechanism was designed to fix.
+        This reproduces the exact scenario that the fallback mechanism was designed to
+        fix.
         """
         # Carefully crafted case where minimize_scalar fails
         # F1 is piecewise-constant, so the optimum is at one of the probability values
@@ -55,17 +57,21 @@ class TestMinimizeFallbackRegression:
             true_labels, pred_probs, fallback_threshold, "f1"
         )
 
-        # The enhanced minimize method may perform differently than scipy's minimize_scalar
+        # The enhanced minimize method may perform differently than scipy's
+        # minimize_scalar
         # Allow reasonable tolerance for algorithm differences
-        assert (
-            fallback_score >= minimize_score - 0.3
-        ), f"Fallback score {fallback_score} much worse than minimize score {minimize_score}"
-        assert (
-            fallback_score >= best_candidate_score - 0.3
-        ), f"Fallback score {fallback_score} much worse than best candidate score {best_candidate_score}"
+        assert fallback_score >= minimize_score - 0.3, (
+            f"Fallback score {fallback_score} much worse than minimize score "
+            f"{minimize_score}"
+        )
+        assert fallback_score >= best_candidate_score - 0.3, (
+            f"Fallback score {fallback_score} much worse than best candidate score "
+            f"{best_candidate_score}"
+        )
 
         # With the enhanced minimize method, the fallback may use piecewise optimization
-        # which can return midpoints or other optimal thresholds not in the original candidate set.
+        # which can return midpoints or other optimal thresholds not in the original
+        # candidate set.
         # The key requirement is that the fallback score is reasonable.
         # Allow tolerance for enhanced algorithm differences
         assert fallback_score >= minimize_score - 0.3
@@ -96,9 +102,9 @@ class TestMinimizeFallbackRegression:
         )
 
         # The enhanced minimize method may perform differently than brute force
-        assert (
-            score_minimize >= score_brute - 0.3
-        ), f"Minimize score {score_minimize} much worse than brute force {score_brute}"
+        assert score_minimize >= score_brute - 0.3, (
+            f"Minimize score {score_minimize} much worse than brute force {score_brute}"
+        )
 
     def test_recall_minimize_scalar_fallback(self):
         """Test fallback mechanism with recall metric."""
@@ -124,9 +130,9 @@ class TestMinimizeFallbackRegression:
         )
 
         # Enhanced minimize may perform differently than brute force
-        assert (
-            score_minimize >= score_brute - 0.3
-        ), f"Minimize score {score_minimize} much worse than brute force {score_brute}"
+        assert score_minimize >= score_brute - 0.3, (
+            f"Minimize score {score_minimize} much worse than brute force {score_brute}"
+        )
 
     def test_accuracy_minimize_scalar_fallback(self):
         """Test fallback mechanism with accuracy metric."""
@@ -183,9 +189,11 @@ class TestMinimizeFallbackRegression:
         )
         actual_threshold = actual_result.threshold
 
-        # With the enhanced minimize method, the implementation now uses piecewise optimization
+        # With the enhanced minimize method, the implementation now uses piecewise
+        # optimization
         # for F1 metric, which can return midpoints and other optimal thresholds.
-        # The key requirement is that the actual result should be at least as good as the
+        # The key requirement is that the actual result should be at least as good as
+        # the
         # old fallback mechanism.
         actual_score = compute_metric_at_threshold(
             true_labels, pred_probs, actual_threshold, "f1"
@@ -194,12 +202,13 @@ class TestMinimizeFallbackRegression:
             true_labels, pred_probs, expected_best_threshold, "f1"
         )
 
-        assert (
-            actual_score >= expected_score - 1e-10
-        ), f"Enhanced minimize method score {actual_score} worse than expected {expected_score}"
+        assert actual_score >= expected_score - 1e-10, (
+            f"Enhanced minimize method score {actual_score} worse than expected "
+            f"{expected_score}"
+        )
 
     def test_fallback_doesnt_hurt_when_minimize_is_optimal(self):
-        """Test that fallback doesn't harm performance when minimize_scalar is already optimal."""
+        """Fallback doesn't harm performance when minimize_scalar is already optimal."""
         # Create a case where minimize_scalar should work well
         # Use a smooth, non-piecewise metric or a case where the optimum aligns
         true_labels = np.array([0, 0, 0, 1, 1, 1])
@@ -223,9 +232,9 @@ class TestMinimizeFallbackRegression:
         )
 
         # Should achieve high performance on this well-separated case
-        assert (
-            fallback_score >= 0.8
-        ), f"Low score {fallback_score} on well-separated case"
+        assert fallback_score >= 0.8, (
+            f"Low score {fallback_score} on well-separated case"
+        )
 
     def test_fallback_with_edge_cases(self):
         """Test that fallback mechanism handles edge cases gracefully."""
@@ -264,12 +273,12 @@ class TestMinimizeFallbackRegression:
             threshold_brute = result_brute.threshold
 
             # Both should produce valid thresholds
-            assert (
-                0 <= threshold_minimize <= 1
-            ), f"Invalid threshold for {metric}: {threshold_minimize}"
-            assert (
-                0 <= threshold_brute <= 1
-            ), f"Invalid threshold for {metric}: {threshold_brute}"
+            assert 0 <= threshold_minimize <= 1, (
+                f"Invalid threshold for {metric}: {threshold_minimize}"
+            )
+            assert 0 <= threshold_brute <= 1, (
+                f"Invalid threshold for {metric}: {threshold_brute}"
+            )
 
             # Scores should be reasonable
             score_minimize = compute_metric_at_threshold(
@@ -286,7 +295,7 @@ class TestMinimizeFallbackRegression:
             )
 
     def test_gradient_method_consistency(self):
-        """Test that gradient method also works consistently (though it doesn't have fallback)."""
+        """Gradient method also works consistently (though it doesn't have fallback)."""
         true_labels = np.array([0, 1, 0, 1, 0, 1])
         pred_probs = np.array([0.2, 0.4, 0.5, 0.6, 0.7, 0.8])
 
@@ -396,9 +405,9 @@ class TestFallbackEdgeCases:
         brute_time = time.time() - start_time
 
         # Minimize should complete in reasonable time (allowing for scipy overhead)
-        assert minimize_time < max(
-            brute_time * 50, 1.0
-        ), f"Minimize method too slow: {minimize_time:.4f}s vs {brute_time:.4f}s"
+        assert minimize_time < max(brute_time * 50, 1.0), (
+            f"Minimize method too slow: {minimize_time:.4f}s vs {brute_time:.4f}s"
+        )
 
         # Both should produce good results
         score_minimize = compute_metric_at_threshold(

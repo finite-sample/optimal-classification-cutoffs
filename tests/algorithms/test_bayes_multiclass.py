@@ -41,7 +41,8 @@ class TestBayesDecisionFromUtilityMatrix:
         # Class 0 gives 1*0.4 = 0.4, so should abstain (decision 3)
         assert decisions[0] == 3
 
-        # Second sample: class 1 has prob 0.8, gives utility 0.8 > 0.6, so predict class 1
+        # Second sample: class 1 has prob 0.8, gives utility 0.8 > 0.6, so predict class
+        # 1
         assert decisions[1] == 1
 
     def test_return_scores(self):
@@ -80,11 +81,11 @@ class TestBayesDecisionFromUtilityMatrix:
 
         # Wrong number of columns in U
         U_wrong = np.array([[1, 0], [0, 1]])
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="has 3 classes but utility_matrix has 2"):
             optimize_decisions(y_prob, cost_matrix=-U_wrong)
 
         # Wrong shape for y_prob
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="probabilities must be 2D array"):
             optimize_decisions(np.array([0.7, 0.2, 0.1]), cost_matrix=-np.eye(3))
 
         # Test utility matrix validation
@@ -230,7 +231,7 @@ class TestIntegrationWithRouter:
         # No utility specified
         with pytest.raises(
             ValueError,
-            match="mode='bayes' requires 'utility' .* or 'fp_costs'/'fn_costs'",
+            match=r"mode='bayes' requires 'utility' .* or 'fp_costs'/'fn_costs'",
         ):
             optimize_thresholds(None, y_prob, mode="bayes")
 

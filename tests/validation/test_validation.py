@@ -83,7 +83,7 @@ class TestBasicInputValidation:
     def test_validate_inputs_non_finite_values(self):
         """Test validation with NaN and infinite values."""
         # NaN in true labels - this now gets auto-converted
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="cannot convert float NaN to integer"):
             validate_inputs([0, np.nan, 1], [0.5, 0.6, 0.7])
 
         # Infinite in pred_prob
@@ -121,7 +121,8 @@ class TestBasicInputValidation:
 
     def test_validate_inputs_probability_range(self):
         """Test probability range validation with require_proba=True."""
-        # Valid probabilities - test through binary_classification since validate_inputs doesn't have require_proba
+        # Valid probabilities - test through binary_classification since validate_inputs
+        # doesn't have require_proba
         validate_binary_classification([0, 1], [0.0, 1.0], require_proba=True)
         validate_binary_classification([0, 1], [0.5, 0.7], require_proba=True)
 
@@ -155,7 +156,7 @@ class TestBasicInputValidation:
 
         # Valid sample weights
         sample_weights = [1.0, 2.0, 1.5, 0.5]
-        validated_labels, validated_probs, validated_weights = validate_inputs(
+        _validated_labels, _validated_probs, validated_weights = validate_inputs(
             true_labels, pred_probs, weights=sample_weights
         )
         assert validated_weights is not None
@@ -204,7 +205,7 @@ class TestBinaryClassificationValidation:
         probs = np.array([0.2, 0.8, 0.3, 0.7])
         weights = np.array([1.0, 2.0, 1.5, 0.5])
 
-        validated_labels, validated_probs, validated_weights = (
+        _validated_labels, _validated_probs, validated_weights = (
             validate_binary_classification(labels, probs, weights=weights)
         )
         assert validated_weights is not None
@@ -290,7 +291,7 @@ class TestMulticlassValidation:
 
         # Test with valid probabilities
         valid_probs = np.array([[0.1, 0.5, 0.4], [0.3, 0.2, 0.5], [0.4, 0.3, 0.3]])
-        validated_labels, validated_probs, validated_weights = (
+        validated_labels, _validated_probs, _validated_weights = (
             validate_multiclass_classification(labels, valid_probs)
         )
         assert np.array_equal(validated_labels, labels)
@@ -349,7 +350,8 @@ class TestParameterValidation:
         """Test threshold validation."""
         # Valid single threshold
         validated = validate_threshold(0.5)
-        assert len(validated) == 1 and validated[0] == 0.5
+        assert len(validated) == 1
+        assert validated[0] == 0.5
 
         # Valid array of thresholds
         thresholds = [0.2, 0.5, 0.8]
@@ -573,7 +575,8 @@ class TestEdgeCasesAndRobustness:
     def test_edge_case_single_sample(self):
         """Test validation with single sample."""
         validate_inputs([1], [0.7])
-        # For multiclass single sample, need probability columns to match number of unique classes
+        # For multiclass single sample, need probability columns to match number of
+        # unique classes
         validate_inputs([0], [[0.7]])  # multiclass with 1 sample, 1 class
 
     def test_edge_case_single_class_multiclass(self):

@@ -44,9 +44,9 @@ class TestLargeScaleScenarios:
 
         threshold = result.threshold
         assert_valid_threshold(threshold)
-        assert (
-            execution_time < 120.0
-        ), f"Massive dataset optimization took {execution_time:.2f}s"
+        assert execution_time < 120.0, (
+            f"Massive dataset optimization took {execution_time:.2f}s"
+        )
 
         # Verify optimization quality
         score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
@@ -74,9 +74,9 @@ class TestLargeScaleScenarios:
 
         threshold = result.threshold
         assert_valid_threshold(threshold)
-        assert (
-            execution_time < 60.0
-        ), f"Large imbalanced optimization took {execution_time:.2f}s"
+        assert execution_time < 60.0, (
+            f"Large imbalanced optimization took {execution_time:.2f}s"
+        )
 
         # Even with extreme imbalance, should find reasonable threshold
         score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
@@ -100,9 +100,9 @@ class TestLargeScaleScenarios:
 
         threshold = result.threshold
         assert_valid_threshold(threshold)
-        assert (
-            execution_time < 30.0
-        ), f"Massive tie optimization took {execution_time:.2f}s"
+        assert execution_time < 30.0, (
+            f"Massive tie optimization took {execution_time:.2f}s"
+        )
 
         score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
@@ -169,9 +169,10 @@ class TestLongRunningScenarios:
                     # Performance should be reasonable
                     max_time = np.max(execution_times)
 
-                    assert (
-                        max_time < 30.0
-                    ), f"Method {method} with metric {metric} too slow: {max_time:.2f}s"
+                    assert max_time < 30.0, (
+                        f"Method {method} with metric {metric} too slow: "
+                        f"{max_time:.2f}s"
+                    )
 
     @pytest.mark.slow
     def test_multiclass_scaling_comprehensive(self):
@@ -218,7 +219,8 @@ class TestLongRunningScenarios:
 
                 except MemoryError:
                     pytest.skip(
-                        f"Insufficient memory for {n_samples} samples, {n_classes} classes"
+                        f"Insufficient memory for {n_samples} samples, {n_classes} "
+                        f"classes"
                     )
 
     @pytest.mark.slow

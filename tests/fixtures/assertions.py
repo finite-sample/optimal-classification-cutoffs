@@ -28,9 +28,9 @@ def assert_valid_threshold(
     threshold = np.asarray(threshold)
 
     # Check for NaN/inf - thresholds must be finite
-    assert np.all(
-        np.isfinite(threshold)
-    ), f"Threshold {threshold} contains non-finite values"
+    assert np.all(np.isfinite(threshold)), (
+        f"Threshold {threshold} contains non-finite values"
+    )
 
     # Check range - for traditional methods, thresholds should be in [0,1]
     # For margin-based methods (coordinate ascent), they can be outside [0,1]
@@ -44,9 +44,9 @@ def assert_valid_threshold(
             # Scalar threshold for multiclass is only valid if n_classes=1
             assert n_classes == 1, f"Scalar threshold for {n_classes} classes"
         else:
-            assert (
-                len(threshold) == n_classes
-            ), f"Expected {n_classes} thresholds, got {len(threshold)}"
+            assert len(threshold) == n_classes, (
+                f"Expected {n_classes} thresholds, got {len(threshold)}"
+            )
 
 
 def assert_valid_confusion_matrix(
@@ -86,14 +86,14 @@ def assert_valid_confusion_matrix(
     # Check totals if provided
     total = tp + tn + fp + fn
     if total_samples is not None:
-        assert (
-            abs(total - total_samples) < tolerance
-        ), f"Total {total} != expected {total_samples}"
+        assert abs(total - total_samples) < tolerance, (
+            f"Total {total} != expected {total_samples}"
+        )
 
     if total_weight is not None:
-        assert (
-            abs(total - total_weight) < tolerance
-        ), f"Total weight {total} != expected {total_weight}"
+        assert abs(total - total_weight) < tolerance, (
+            f"Total weight {total} != expected {total_weight}"
+        )
 
 
 def assert_valid_metric_score(
@@ -121,9 +121,9 @@ def assert_valid_metric_score(
     assert np.isfinite(score), f"{metric_name} score {score} is not finite"
 
     min_val, max_val = expected_range
-    assert (
-        min_val <= score <= max_val
-    ), f"{metric_name} score {score} outside range [{min_val}, {max_val}]"
+    assert min_val <= score <= max_val, (
+        f"{metric_name} score {score} outside range [{min_val}, {max_val}]"
+    )
 
 
 def assert_monotonic_increase(
@@ -146,9 +146,9 @@ def assert_monotonic_increase(
     if strict:
         assert np.all(diffs > tolerance), f"Values not strictly increasing: {values}"
     else:
-        assert np.all(
-            diffs >= -tolerance
-        ), f"Values not monotonically increasing: {values}"
+        assert np.all(diffs >= -tolerance), (
+            f"Values not monotonically increasing: {values}"
+        )
 
 
 def assert_arrays_close(
@@ -174,9 +174,9 @@ def assert_arrays_close(
     actual = np.asarray(actual)
     expected = np.asarray(expected)
 
-    assert (
-        actual.shape == expected.shape
-    ), f"{description} shapes differ: {actual.shape} vs {expected.shape}"
+    assert actual.shape == expected.shape, (
+        f"{description} shapes differ: {actual.shape} vs {expected.shape}"
+    )
 
     try:
         np.testing.assert_allclose(actual, expected, rtol=rtol, atol=atol)
@@ -217,16 +217,16 @@ def assert_probability_matrix_valid(
 
     # Check number of classes
     if n_classes is not None:
-        assert (
-            probs.shape[1] == n_classes
-        ), f"Expected {n_classes} classes, got {probs.shape[1]}"
+        assert probs.shape[1] == n_classes, (
+            f"Expected {n_classes} classes, got {probs.shape[1]}"
+        )
 
     # Check normalization
     if require_normalized:
         row_sums = probs.sum(axis=1)
-        assert np.allclose(
-            row_sums, 1.0, atol=tolerance
-        ), f"Probability rows don't sum to 1: {row_sums}"
+        assert np.allclose(row_sums, 1.0, atol=tolerance), (
+            f"Probability rows don't sum to 1: {row_sums}"
+        )
 
 
 def assert_labels_valid(
@@ -249,9 +249,9 @@ def assert_labels_valid(
     assert labels.ndim == 1, f"Labels must be 1D, got shape {labels.shape}"
 
     # Check integer type
-    assert np.issubdtype(
-        labels.dtype, np.integer
-    ), f"Labels must be integers, got {labels.dtype}"
+    assert np.issubdtype(labels.dtype, np.integer), (
+        f"Labels must be integers, got {labels.dtype}"
+    )
 
     # Check non-negative
     assert np.all(labels >= 0), "Labels contain negative values"
@@ -262,15 +262,15 @@ def assert_labels_valid(
     unique_labels = np.unique(labels)
 
     if n_classes is not None:
-        assert (
-            np.max(labels) < n_classes
-        ), f"Labels {np.max(labels)} >= n_classes {n_classes}"
+        assert np.max(labels) < n_classes, (
+            f"Labels {np.max(labels)} >= n_classes {n_classes}"
+        )
 
     if require_consecutive:
         expected_labels = np.arange(len(unique_labels))
-        assert np.array_equal(
-            unique_labels, expected_labels
-        ), f"Labels must be consecutive from 0, got {unique_labels}"
+        assert np.array_equal(unique_labels, expected_labels), (
+            f"Labels must be consecutive from 0, got {unique_labels}"
+        )
 
 
 def assert_optimization_successful(
@@ -297,9 +297,9 @@ def assert_optimization_successful(
     """
     assert_valid_threshold(threshold, allow_infinite_range=allow_infinite_range)
     assert_valid_metric_score(metric_score, metric_name)
-    assert (
-        metric_score >= min_score
-    ), f"{metric_name} score {metric_score} below minimum {min_score}"
+    assert metric_score >= min_score, (
+        f"{metric_name} score {metric_score} below minimum {min_score}"
+    )
 
 
 def assert_method_consistency(
@@ -327,7 +327,8 @@ def assert_method_consistency(
     result2 = np.asarray(result2)
 
     # For thresholds, use tight tolerance
-    # For scores, use looser tolerance since different methods may find different local optima
+    # For scores, use looser tolerance since different methods may find different local
+    # optima
     tol = (
         score_tolerance
         if "score" in method1.lower() or "score" in method2.lower()

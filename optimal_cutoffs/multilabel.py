@@ -12,10 +12,14 @@ All functions assume calibrated probabilities: E[y|p] = p
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-from numpy.typing import ArrayLike
 
 from .core import OptimizationResult, Task
+
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike
 
 
 def optimize_macro_multilabel(
@@ -36,36 +40,30 @@ def optimize_macro_multilabel(
     Since each F1_j depends only on τ_j, we can optimize each threshold
     independently using binary optimization. This is exact and efficient.
 
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples, n_labels)
-        True multi-label binary matrix
-    y_score : array-like of shape (n_samples, n_labels)
-        Predicted probabilities for each label
-    metric : str, default="f1"
-        Metric to optimize per label ("f1", "precision", "recall")
-    method : str, default="auto"
-        Binary optimization method for each label
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : str, default=">"
-        Comparison operator
-    tolerance : float, default=1e-10
-        Numerical tolerance
+    Args:
+        y_true: True multi-label binary matrix. Shape: (n_samples, n_labels).
+        y_score: Predicted probabilities for each label. Shape: (n_samples, n_labels).
+        metric: Metric to optimize per label ("f1", "precision", "recall"). Defaults to
+            "f1".
+        method: Binary optimization method for each label. Defaults to "auto".
+        sample_weight: Sample weights. Shape: (n_samples,). Optional.
+        comparison: Comparison operator. Defaults to ">".
+        tolerance: Numerical tolerance. Defaults to 1e-10.
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with per-label thresholds and macro-averaged score
 
-    Examples
-    --------
-    >>> # 3 independent labels
-    >>> y_true = [[1, 0, 1], [0, 1, 0], [1, 1, 1]]
-    >>> y_score = [[0.8, 0.2, 0.9], [0.1, 0.7, 0.3], [0.9, 0.8, 0.7]]
-    >>> result = optimize_macro_multilabel(y_true, y_score, metric="f1")
-    >>> len(result.thresholds)  # One per label
-    3
+    Raises:
+        ValueError: If labels or probabilities are not 2D, their shapes disagree,
+                    or the sample weights do not match the number of samples.
+
+    Examples:
+        >>> # 3 independent labels
+        >>> y_true = [[1, 0, 1], [0, 1, 0], [1, 1, 1]]
+        >>> y_score = [[0.8, 0.2, 0.9], [0.1, 0.7, 0.3], [0.9, 0.8, 0.7]]
+        >>> result = optimize_macro_multilabel(y_true, y_score, metric="f1")
+        >>> len(result.thresholds)  # One per label
+        3
     """
     from .binary import optimize_metric_binary
 
@@ -87,7 +85,7 @@ def optimize_macro_multilabel(
         if len(sample_weight) != y_true.shape[0]:
             raise ValueError("Sample weights must match number of samples")
 
-    n_samples, n_labels = y_true.shape
+    _n_samples, n_labels = y_true.shape
 
     # Optimize each label independently
     optimal_thresholds = np.zeros(n_labels, dtype=np.float64)
@@ -127,7 +125,7 @@ def optimize_macro_multilabel(
 
     return OptimizationResult(
         thresholds=optimal_thresholds,
-        scores=np.array([macro_score]),
+        scores=np.array([macro_score], dtype=np.float64),
         predict=predict_multilabel,
         task=Task.MULTILABEL,
         metric=f"macro_{metric}",
@@ -153,32 +151,24 @@ def optimize_micro_multilabel(
     where TP_total = Σ_j TP_j(τ_j). Changing any τ_j affects the global metric,
     so we use coordinate ascent to optimize the coupled problem.
 
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples, n_labels)
-        True multi-label binary matrix
-    y_score : array-like of shape (n_samples, n_labels)
-        Predicted probabilities for each label
-    metric : str, default="f1"
-        Metric to optimize ("f1", "precision", "recall")
-    max_iter : int, default=30
-        Maximum coordinate ascent iterations
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : str, default=">"
-        Comparison operator
-    tolerance : float, default=1e-12
-        Convergence tolerance
+    Args:
+        y_true: True multi-label binary matrix. Shape: (n_samples, n_labels).
+        y_score: Predicted probabilities for each label. Shape: (n_samples, n_labels).
+        metric: Metric to optimize ("f1", "precision", "recall"). Defaults to "f1".
+        max_iter: Maximum coordinate ascent iterations. Defaults to 30.
+        sample_weight: Sample weights. Shape: (n_samples,). Optional.
+        comparison: Comparison operator. Defaults to ">".
+        tolerance: Convergence tolerance. Defaults to 1e-12.
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with per-label thresholds optimized for micro averaging
 
-    Examples
-    --------
-    >>> result = optimize_micro_multilabel(y_true, y_score, metric="f1")
-    >>> # Thresholds are coupled - changing one affects global metric
+    Raises:
+        ValueError: If labels or probabilities are not 2D or their shapes disagree.
+
+    Examples:
+        >>> result = optimize_micro_multilabel(y_true, y_score, metric="f1")
+        >>> # Thresholds are coupled - changing one affects global metric
     """
     from .metrics_core import get_metric_function
 
@@ -295,37 +285,29 @@ def optimize_multilabel(
     - Macro: Independent optimization per label (exact, O(K·n log n))
     - Micro: Coordinate ascent for coupled thresholds (local optimum)
 
-    Parameters
-    ----------
-    y_true : array-like of shape (n_samples, n_labels)
-        True multi-label binary matrix
-    y_score : array-like of shape (n_samples, n_labels)
-        Predicted probabilities for each label
-    metric : str, default="f1"
-        Metric to optimize
-    average : {"macro", "micro"}, default="macro"
-        Averaging strategy
-    method : str, default="auto"
-        Optimization method (passed to binary optimizer for macro)
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : str, default=">"
-        Comparison operator
-    tolerance : float, default=1e-10
-        Numerical tolerance
+    Args:
+        y_true: True multi-label binary matrix. Shape: (n_samples, n_labels).
+        y_score: Predicted probabilities for each label. Shape: (n_samples, n_labels).
+        metric: Metric to optimize. Defaults to "f1".
+        average: Averaging strategy. One of {"macro", "micro"}. Defaults to "macro".
+        method: Optimization method (passed to binary optimizer for macro). Defaults to
+            "auto".
+        sample_weight: Sample weights. Shape: (n_samples,). Optional.
+        comparison: Comparison operator. Defaults to ">".
+        tolerance: Numerical tolerance. Defaults to 1e-10.
 
-    Returns
-    -------
-    OptimizationResult
+    Returns:
         Result with optimal thresholds and metric score
 
-    Examples
-    --------
-    >>> # Independent per-label optimization
-    >>> result = optimize_multilabel(y_true, y_score, average="macro")
-    >>>
-    >>> # Coupled optimization for global metric
-    >>> result = optimize_multilabel(y_true, y_score, average="micro")
+    Raises:
+        ValueError: If `average` is not "macro" or "micro".
+
+    Examples:
+        >>> # Independent per-label optimization
+        >>> result = optimize_multilabel(y_true, y_score, average="macro")
+        >>>
+        >>> # Coupled optimization for global metric
+        >>> result = optimize_multilabel(y_true, y_score, average="micro")
     """
     match average:
         case "macro":

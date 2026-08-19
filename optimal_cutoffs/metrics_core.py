@@ -48,23 +48,17 @@ def register_metric(
 ) -> MetricFunction | Callable[[MetricFunction], MetricFunction]:
     """Register a metric function.
 
-    Parameters
-    ----------
-    name
-        Key under which to store the metric. If not provided, uses function's __name__.
-    func
-        Metric callable accepting (tp, tn, fp, fn) as scalars or arrays.
-        Handles both scalar and array inputs via NumPy broadcasting.
-    is_piecewise
-        Whether metric is piecewise-constant w.r.t. threshold changes.
-    maximize
-        Whether to maximize (True) or minimize (False) the metric.
-    needs_proba
-        Whether metric requires probability scores (e.g., log-loss, Brier score).
+    Args:
+        name: Key under which to store the metric. If not provided, uses function's
+            __name__.
+        func: Metric callable accepting (tp, tn, fp, fn) as scalars or arrays.
+            Handles both scalar and array inputs via NumPy broadcasting.
+        is_piecewise: Whether metric is piecewise-constant w.r.t. threshold changes.
+        maximize: Whether to maximize (True) or minimize (False) the metric.
+        needs_proba: Whether metric requires probability scores (e.g., log-loss, Brier
+            score).
 
-    Returns
-    -------
-    callable or decorator
+    Returns:
         The registered function or a decorator if func is None.
     """
     if func is not None:
@@ -114,17 +108,12 @@ def register_metric(
 def register_alias(alias_name: str, target_name: str) -> None:
     """Register an alias for an existing metric.
 
-    Parameters
-    ----------
-    alias_name
-        The alias name to register.
-    target_name
-        The name of the existing metric to point to.
+    Args:
+        alias_name: The alias name to register.
+        target_name: The name of the existing metric to point to.
 
-    Raises
-    ------
-    ValueError
-        If the target metric doesn't exist.
+    Raises:
+        ValueError: If the target metric doesn't exist.
     """
     if target_name not in METRICS:
         available = sorted(METRICS.keys())
@@ -155,16 +144,12 @@ def register_metrics(
 ) -> None:
     """Register multiple metric functions at once.
 
-    Parameters
-    ----------
-    metrics
-        Mapping of metric names to functions that handle both scalars and arrays.
-    is_piecewise
-        Whether metrics are piecewise-constant.
-    maximize
-        Whether metrics should be maximized.
-    needs_proba
-        Whether metrics require probability scores.
+    Args:
+        metrics: Mapping of metric names to functions that handle both scalars and
+            arrays.
+        is_piecewise: Whether metrics are piecewise-constant.
+        maximize: Whether metrics should be maximized.
+        needs_proba: Whether metrics require probability scores.
     """
     for name, metric_fn in metrics.items():
         METRICS[name] = MetricInfo(
@@ -180,20 +165,14 @@ def register_metrics(
 def get_metric_function(metric_name: str) -> Callable[..., Any]:
     """Get metric function with caching for hot paths.
 
-    Parameters
-    ----------
-    metric_name
-        Name of the metric.
+    Args:
+        metric_name: Name of the metric.
 
-    Returns
-    -------
-    callable
+    Returns:
         The metric function that handles both scalar and array inputs.
 
-    Raises
-    ------
-    ValueError
-        If metric doesn't exist.
+    Raises:
+        ValueError: If metric doesn't exist.
     """
     if metric_name not in METRICS:
         available = sorted(METRICS.keys())
@@ -257,16 +236,14 @@ def _safe_div(
         result = np.divide(num, den, out=result, where=valid_mask)
 
         # Handle any remaining inf/nan values (e.g., from inf/inf)
-        result = np.where(np.isfinite(result), result, 0.0)
+        return np.where(np.isfinite(result), result, 0.0)
 
-        return result
-    else:
-        # Scalar case
-        if denominator == 0:
-            return 0.0
-        scalar_result = numerator / denominator
-        # Handle inf/nan cases in scalar arithmetic
-        return scalar_result if np.isfinite(scalar_result) else 0.0
+    # Scalar case
+    if denominator == 0:
+        return 0.0
+    scalar_result = numerator / denominator
+    # Handle inf/nan cases in scalar arithmetic
+    return scalar_result if np.isfinite(scalar_result) else 0.0
 
 
 # ============================================================================
@@ -352,27 +329,20 @@ def confusion_matrix_from_predictions(
     This is the canonical single-pass implementation used throughout the codebase.
     Uses optimized bincount approach (4x faster than boolean masking).
 
-    Parameters
-    ----------
-    true_labels
-        True binary labels (0 or 1)
-    pred_labels
-        Predicted binary labels (0 or 1)
-    sample_weight
-        Sample weights. If None, uniform weights are used.
+    Args:
+        true_labels: True binary labels (0 or 1)
+        pred_labels: Predicted binary labels (0 or 1)
+        sample_weight: Sample weights. If None, uniform weights are used.
 
-    Returns
-    -------
-    tuple[float, float, float, float]
+    Returns:
         (tp, tn, fp, fn) - Always returns floats for consistency.
 
-    Examples
-    --------
-    >>> true = [0, 1, 0, 1, 1]
-    >>> pred = [0, 1, 1, 1, 0]
-    >>> tp, tn, fp, fn = confusion_matrix_from_predictions(true, pred)
-    >>> (tp, tn, fp, fn)
-    (2.0, 1.0, 1.0, 1.0)
+    Examples:
+        >>> true = [0, 1, 0, 1, 1]
+        >>> pred = [0, 1, 1, 1, 0]
+        >>> tp, tn, fp, fn = confusion_matrix_from_predictions(true, pred)
+        >>> (tp, tn, fp, fn)
+        (2.0, 1.0, 1.0, 1.0)
     """
     from .validation import get_sample_weights
 
@@ -399,24 +369,15 @@ def confusion_matrix_at_threshold(
 ) -> tuple[float, float, float, float]:
     """Compute confusion matrix by applying threshold to probabilities.
 
-    Parameters
-    ----------
-    true_labels
-        True binary labels in {0, 1}.
-    pred_proba
-        Predicted probabilities in [0, 1] (if require_proba=True) or scores.
-    threshold
-        Decision threshold.
-    sample_weight
-        Sample weights.
-    comparison
-        Comparison operator for thresholding.
-    require_proba
-        If True, enforce [0,1] range. If False, allow arbitrary scores.
+    Args:
+        true_labels: True binary labels in {0, 1}.
+        pred_proba: Predicted probabilities in [0, 1] (if require_proba=True) or scores.
+        threshold: Decision threshold.
+        sample_weight: Sample weights.
+        comparison: Comparison operator for thresholding.
+        require_proba: If True, enforce [0,1] range. If False, allow arbitrary scores.
 
-    Returns
-    -------
-    tuple[float, float, float, float]
+    Returns:
         (tp, tn, fp, fn) - Always returns floats for consistency.
     """
     # Validate inputs
@@ -453,16 +414,11 @@ def compute_vectorized_confusion_matrices(
     - Index 0: Predict nothing as positive (all negative predictions)
     - Index k (k > 0): Predict first k items as positive
 
-    Parameters
-    ----------
-    y_sorted
-        Binary labels sorted by descending probability.
-    weights_sorted
-        Sample weights sorted by descending probability.
+    Args:
+        y_sorted: Binary labels sorted by descending probability.
+        weights_sorted: Sample weights sorted by descending probability.
 
-    Returns
-    -------
-    tuple[NDArray[np.float64], ...]
+    Returns:
         Arrays of (tp, tn, fp, fn) for each threshold. Length is n+1.
     """
     # Total positive and negative weights
@@ -493,28 +449,18 @@ def apply_metric_to_confusion_counts(
 ) -> NDArray[np.float64]:
     """Apply vectorized metric function to confusion matrix counts.
 
-    Parameters
-    ----------
-    metric_fn
-        Vectorized metric accepting (tp, tn, fp, fn) arrays.
-    tp
-        True positives array.
-    tn
-        True negatives array.
-    fp
-        False positives array.
-    fn
-        False negatives array.
+    Args:
+        metric_fn: Vectorized metric accepting (tp, tn, fp, fn) arrays.
+        tp: True positives array.
+        tn: True negatives array.
+        fp: False positives array.
+        fn: False negatives array.
 
-    Returns
-    -------
-    NDArray[np.float64]
+    Returns:
         Array of metric scores.
 
-    Raises
-    ------
-    ValueError
-        If metric function returns wrong shape.
+    Raises:
+        ValueError: If metric function returns wrong shape.
     """
     scores = metric_fn(tp, tn, fp, fn)
     scores = np.asarray(scores)
@@ -544,18 +490,12 @@ def compute_exclusive_predictions(
     Note: Margin-based decisions can select lower-probability classes with
     better margins. See documentation for details on decision rules.
 
-    Parameters
-    ----------
-    pred_prob
-        Predicted probabilities (n_samples, n_classes)
-    thresholds
-        Per-class thresholds (n_classes,)
-    comparison
-        Comparison operator (">" or ">=")
+    Args:
+        pred_prob: Predicted probabilities (n_samples, n_classes)
+        thresholds: Per-class thresholds (n_classes,)
+        comparison: Comparison operator (">" or ">=")
 
-    Returns
-    -------
-    np.ndarray
+    Returns:
         Predicted class labels (n_samples,)
     """
     margins = pred_prob - thresholds  # broadcast
@@ -578,20 +518,13 @@ def ovr_confusion_counts(
 ) -> tuple[float, float, float]:
     """Compute TP, FP, FN for one class vs rest (skip TN for efficiency).
 
-    Parameters
-    ----------
-    true_labels
-        True class labels
-    pred_labels
-        Predicted class labels
-    class_label
-        Class to compute metrics for
-    weights
-        Sample weights
+    Args:
+        true_labels: True class labels
+        pred_labels: Predicted class labels
+        class_label: Class to compute metrics for
+        weights: Sample weights
 
-    Returns
-    -------
-    tuple[float, float, float]
+    Returns:
         (tp, fp, fn) - TN not computed as it's often unused in OvR metrics
     """
     if weights is None:
@@ -622,24 +555,15 @@ def compute_metric_at_threshold(
 ) -> float:
     """Compute metric score at a given threshold.
 
-    Parameters
-    ----------
-    true_labels
-        True binary labels
-    pred_proba
-        Predicted probabilities
-    threshold
-        Decision threshold
-    metric
-        Metric name (must be registered)
-    sample_weight
-        Sample weights
-    comparison
-        Comparison operator
+    Args:
+        true_labels: True binary labels
+        pred_proba: Predicted probabilities
+        threshold: Decision threshold
+        metric: Metric name (must be registered)
+        sample_weight: Sample weights
+        comparison: Comparison operator
 
-    Returns
-    -------
-    float
+    Returns:
         Metric score at the threshold
     """
     tp, tn, fp, fn = confusion_matrix_at_threshold(
@@ -663,24 +587,15 @@ def multiclass_metric_single_label(
     Uses margin-based decision rule: predict class with highest margin (p_j - tau_j).
     Computes sample-level accuracy or macro-averaged precision/recall/F1.
 
-    Parameters
-    ----------
-    true_labels
-        True class labels (n_samples,)
-    pred_proba
-        Predicted probabilities (n_samples, n_classes)
-    thresholds
-        Per-class thresholds (n_classes,)
-    metric_name
-        Metric to compute ("accuracy", "f1", "precision", "recall")
-    comparison
-        Comparison operator
-    sample_weight
-        Sample weights
+    Args:
+        true_labels: True class labels (n_samples,)
+        pred_proba: Predicted probabilities (n_samples, n_classes)
+        thresholds: Per-class thresholds (n_classes,)
+        metric_name: Metric to compute ("accuracy", "f1", "precision", "recall")
+        comparison: Comparison operator
+        sample_weight: Sample weights
 
-    Returns
-    -------
-    float
+    Returns:
         Computed metric value
     """
     true_labels = np.asarray(true_labels)
@@ -696,8 +611,7 @@ def multiclass_metric_single_label(
         if sample_weight is not None:
             sample_weight = np.asarray(sample_weight)
             return float(np.average(correct, weights=sample_weight))
-        else:
-            return float(np.mean(correct))
+        return float(np.mean(correct))
 
     # Macro-averaged metrics
     labels = np.unique(true_labels.astype(int))
@@ -710,7 +624,9 @@ def multiclass_metric_single_label(
         true_binary = (true_labels == c).astype(int)
         pred_binary = (pred_labels == c).astype(int)
 
-        tp, tn, fp, fn = confusion_matrix_from_predictions(true_binary, pred_binary, sw)
+        tp, _tn, fp, fn = confusion_matrix_from_predictions(
+            true_binary, pred_binary, sw
+        )
         # TN not meaningful in macro-averaged OvR, pass 0
         per_class.append(metric_func(tp, 0, fp, fn))
 
@@ -724,24 +640,16 @@ def multiclass_metric_ovr(
 ) -> float | np.ndarray:
     """Compute multiclass metrics from per-class confusion matrices (OvR).
 
-    Parameters
-    ----------
-    confusion_matrices
-        List of per-class (tp, tn, fp, fn) tuples
-    metric_name
-        Metric name (must be registered)
-    average
-        Averaging strategy
+    Args:
+        confusion_matrices: List of per-class (tp, tn, fp, fn) tuples
+        metric_name: Metric name (must be registered)
+        average: Averaging strategy
 
-    Returns
-    -------
-    float or np.ndarray
+    Returns:
         Aggregated metric (float) or per-class scores (array if average="none")
 
-    Raises
-    ------
-    ValueError
-        If metric doesn't support requested averaging or is unknown
+    Raises:
+        ValueError: If metric doesn't support requested averaging or is unknown
     """
     metric_func = get_metric_function(metric_name)
 
@@ -761,11 +669,11 @@ def multiclass_metric_ovr(
                 return float(
                     total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
                 )
-            elif metric_name in ("recall", "sensitivity", "tpr"):
+            if metric_name in ("recall", "sensitivity", "tpr"):
                 return float(
                     total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
                 )
-            elif metric_name == "f1":
+            if metric_name == "f1":
                 precision = (
                     total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
                 )
@@ -777,22 +685,22 @@ def multiclass_metric_ovr(
                     if (precision + recall) > 0
                     else 0.0
                 )
-            elif metric_name == "accuracy":
+            if metric_name == "accuracy":
                 raise ValueError(
-                    "Micro-averaged accuracy requires exclusive single-label predictions. "
+                    "Micro-averaged accuracy requires exclusive single-label "
+                    "predictions. "
                     "Use multiclass_metric_single_label() instead."
                 )
-            else:
-                raise ValueError(
-                    f"Micro-averaged '{metric_name}' is not defined in OvR. "
-                    "Supported: 'precision', 'recall', 'f1'."
-                )
+            raise ValueError(
+                f"Micro-averaged '{metric_name}' is not defined in OvR. "
+                "Supported: 'precision', 'recall', 'f1'."
+            )
 
         case "weighted":
             scores = []
             supports = []
             for cm in confusion_matrices:
-                tp, tn, fp, fn = cm
+                tp, _tn, _fp, fn = cm
                 scores.append(metric_func(*cm))
                 supports.append(tp + fn)  # True positives for this class
 
@@ -830,25 +738,19 @@ def compute_multiclass_metrics_from_labels(
 ) -> float | np.ndarray:
     """Compute multiclass metrics from true and predicted labels.
 
-    Parameters
-    ----------
-    true_labels
-        True class labels
-    pred_labels
-        Predicted class labels
-    metric
-        Metric to compute
-    average
-        Averaging strategy
-    sample_weight
-        Sample weights
-    n_classes
-        Number of classes (inferred if None)
+    Args:
+        true_labels: True class labels
+        pred_labels: Predicted class labels
+        metric: Metric to compute
+        average: Averaging strategy
+        sample_weight: Sample weights
+        n_classes: Number of classes (inferred if None)
 
-    Returns
-    -------
-    float or np.ndarray
+    Returns:
         Computed metric score
+
+    Raises:
+        ValueError: If `true_labels` and `pred_labels` have different shapes.
     """
     from .validation import get_sample_weights
 
@@ -892,25 +794,19 @@ def multiclass_confusion_matrices_at_thresholds(
 ) -> list[tuple[float, float, float, float]]:
     """Compute per-class confusion matrices for multiclass (OvR).
 
-    Parameters
-    ----------
-    true_labels
-        True class labels
-    pred_proba
-        Predicted probabilities (n_samples, n_classes) or scores
-    thresholds
-        Per-class thresholds
-    sample_weight
-        Sample weights
-    comparison
-        Comparison operator
-    require_proba
-        If True, enforce [0,1] range
+    Args:
+        true_labels: True class labels
+        pred_proba: Predicted probabilities (n_samples, n_classes) or scores
+        thresholds: Per-class thresholds
+        sample_weight: Sample weights
+        comparison: Comparison operator
+        require_proba: If True, enforce [0,1] range
 
-    Returns
-    -------
-    list[tuple[float, float, float, float]]
+    Returns:
         List of per-class (tp, tn, fp, fn) tuples
+
+    Raises:
+        ValueError: If `thresholds` does not have one entry per class.
     """
     # Validate inputs
     true_labels, pred_proba, sample_weight = validate_multiclass_classification(
@@ -981,29 +877,20 @@ def make_linear_counts_metric(
 
     Returns: metric(tp, tn, fp, fn) = w_tp*tp + w_tn*tn + w_fp*fp + w_fn*fn
 
-    Parameters
-    ----------
-    w_tp
-        Weight for true positives
-    w_tn
-        Weight for true negatives
-    w_fp
-        Weight for false positives
-    w_fn
-        Weight for false negatives
-    name
-        If provided, automatically registers the metric
+    Args:
+        w_tp: Weight for true positives
+        w_tn: Weight for true negatives
+        w_fp: Weight for false positives
+        w_fn: Weight for false negatives
+        name: If provided, automatically registers the metric
 
-    Returns
-    -------
-    callable
+    Returns:
         Vectorized metric function
 
-    Examples
-    --------
-    >>> # Cost-sensitive: FN costs 5x more than FP
-    >>> metric = make_linear_counts_metric(w_fp=-1.0, w_fn=-5.0, name="cost_5to1")
-    >>> # Now can use: optimize_threshold(y, y_pred, metric="cost_5to1")
+    Examples:
+        >>> # Cost-sensitive: FN costs 5x more than FP
+        >>> metric = make_linear_counts_metric(w_fp=-1.0, w_fn=-5.0, name="cost_5to1")
+        >>> # Now can use: optimize_threshold(y, y_pred, metric="cost_5to1")
     """
 
     def _metric(
@@ -1056,29 +943,20 @@ def make_cost_metric(
 
     Returns: tp_benefit*TP + tn_benefit*TN - fp_cost*FP - fn_cost*FN
 
-    Parameters
-    ----------
-    fp_cost
-        Cost of false positives (positive value)
-    fn_cost
-        Cost of false negatives (positive value)
-    tp_benefit
-        Benefit for true positives
-    tn_benefit
-        Benefit for true negatives
-    name
-        If provided, automatically registers the metric
+    Args:
+        fp_cost: Cost of false positives (positive value)
+        fn_cost: Cost of false negatives (positive value)
+        tp_benefit: Benefit for true positives
+        tn_benefit: Benefit for true negatives
+        name: If provided, automatically registers the metric
 
-    Returns
-    -------
-    callable
+    Returns:
         Vectorized metric function
 
-    Examples
-    --------
-    >>> # Classic cost-sensitive
-    >>> metric = make_cost_metric(fp_cost=1.0, fn_cost=5.0, name="cost_sensitive")
-    >>> # Now can use: optimize_threshold(y, y_pred, metric="cost_sensitive")
+    Examples:
+        >>> # Classic cost-sensitive
+        >>> metric = make_cost_metric(fp_cost=1.0, fn_cost=5.0, name="cost_sensitive")
+        >>> # Now can use: optimize_threshold(y, y_pred, metric="cost_sensitive")
     """
     return make_linear_counts_metric(
         w_tp=tp_benefit,

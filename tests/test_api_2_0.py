@@ -260,7 +260,7 @@ class TestOptimizationResult:
         result = optimize_thresholds(y_true, y_score)
 
         # Should raise for multiclass
-        with pytest.raises(ValueError, match="Use .thresholds"):
+        with pytest.raises(ValueError, match=r"Use \.thresholds"):
             _ = result.threshold
 
     def test_predict_function_works(self):
@@ -298,9 +298,10 @@ class TestAPI20ExportCount:
             "algorithms",
         }
 
-        assert (
-            set(optimal_cutoffs.__all__) == expected_all
-        ), f"Expected 10 __all__ exports, got {len(optimal_cutoffs.__all__)}: {optimal_cutoffs.__all__}"
+        assert set(optimal_cutoffs.__all__) == expected_all, (
+            f"Expected 10 __all__ exports, got {len(optimal_cutoffs.__all__)}: "
+            f"{optimal_cutoffs.__all__}"
+        )
 
         # Test that star import only gets the clean API
         # (This is what users will see with "from optimal_cutoffs import *")
@@ -321,9 +322,9 @@ class TestAPI20ExportCount:
         ]
 
         for func_name in old_functions:
-            assert not hasattr(
-                optimal_cutoffs, func_name
-            ), f"Old function {func_name} should not be available in API 2.0.0"
+            assert not hasattr(optimal_cutoffs, func_name), (
+                f"Old function {func_name} should not be available in API 2.0.0"
+            )
 
 
 class TestOptimizeDecisions:

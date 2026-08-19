@@ -1,22 +1,25 @@
-"""Anchored tests: every assertion here compares against an independently derived answer.
+"""Anchored tests: every assertion compares against an independent answer.
 
 Motivation. Fixing four silent defects required changing four existing tests, and two of
 them had been *pinning* the bugs:
 
 - a "golden" test asserted ``bayes_threshold(cost_fp=1, cost_fn=5)`` equals
-  ``optimize_thresholds(utility={"tp": 2, "tn": 1, ...}, mode="bayes")``. Those agree only
+  ``optimize_thresholds(utility={"tp": 2, "tn": 1, ...}, mode="bayes")``. Those agree
+  only
   if the API route also drops ``tp`` and ``tn`` -- which was the bug. Two wrong paths
   agreeing is indistinguishable from two right ones agreeing.
 - another asserted ``result.method == "minimize"`` for ``accuracy``, which was precisely
   the suboptimal routing being fixed.
 
 Neither could ever have failed. A survey of this suite found 29 more tests whose every
-assertion is incapable of failing for the quantity asserted -- ``assert score >= 0`` for a
+assertion is incapable of failing for the quantity asserted -- ``assert score >= 0`` for
+a
 metric that is non-negative by construction, ``assert 0 <= threshold <= 1`` for a value
 that is clipped to that range, and so on. They cluster on exactly the degenerate inputs
 where a wrong answer looks plausible.
 
-Sweeping those cases against independently derived answers found no further defects. These
+Sweeping those cases against independently derived answers found no further defects.
+These
 tests record the anchors that established that, so the next regression is caught by the
 suite rather than by someone editing the code.
 
@@ -50,7 +53,12 @@ def brute_force_best(y_true, y_score, metric, comparison=">", sample_weight=None
     candidates = np.unique(np.concatenate([[0.0, 1.0], y_score, midpoints]))
     return max(
         compute_metric_at_threshold(
-            y_true, y_score, t, metric, comparison=comparison, sample_weight=sample_weight
+            y_true,
+            y_score,
+            t,
+            metric,
+            comparison=comparison,
+            sample_weight=sample_weight,
         )
         for t in candidates
     )
@@ -59,8 +67,14 @@ def brute_force_best(y_true, y_score, metric, comparison=">", sample_weight=None
 DEGENERATE = {
     "all labels positive": (np.ones(6, int), np.array([0.1, 0.2, 0.4, 0.6, 0.8, 0.9])),
     "all labels negative": (np.zeros(6, int), np.array([0.1, 0.2, 0.4, 0.6, 0.8, 0.9])),
-    "one positive": (np.array([0, 0, 0, 0, 0, 1]), np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.9])),
-    "one negative": (np.array([1, 1, 1, 1, 1, 0]), np.array([0.9, 0.8, 0.7, 0.6, 0.5, 0.1])),
+    "one positive": (
+        np.array([0, 0, 0, 0, 0, 1]),
+        np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.9]),
+    ),
+    "one negative": (
+        np.array([1, 1, 1, 1, 1, 0]),
+        np.array([0.9, 0.8, 0.7, 0.6, 0.5, 0.1]),
+    ),
     "every score tied": (np.array([0, 1, 0, 1, 1, 0]), np.full(6, 0.5)),
     "scores at 0 and 1": (np.array([0, 0, 1, 1]), np.array([0.0, 0.0, 1.0, 1.0])),
     "single sample, positive": (np.array([1]), np.array([0.7])),
@@ -69,7 +83,9 @@ DEGENERATE = {
 
 
 @pytest.mark.parametrize(
-    "case,metric", list(itertools.product(DEGENERATE, METRICS)), ids=lambda v: str(v)
+    ("case", "metric"),
+    list(itertools.product(DEGENERATE, METRICS)),
+    ids=lambda v: str(v),
 )
 def test_degenerate_inputs_reach_the_achievable_optimum(case, metric):
     """The returned threshold must achieve the best score any threshold could.
@@ -136,7 +152,15 @@ def test_duplicating_a_row_equals_giving_it_weight_two(metric, signal_data):
 def test_confusion_matrix_against_a_hand_built_one(comparison, signal_data):
     """Anchored on counting, not on another function in the package."""
     y, score = signal_data
-    thresholds = [0.0, 0.25, 0.5, 0.75, 1.0, float(np.median(score)), float(score.min())]
+    thresholds = [
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0,
+        float(np.median(score)),
+        float(score.min()),
+    ]
 
     for t in thresholds:
         predicted = (score > t) if comparison == ">" else (score >= t)
@@ -147,7 +171,10 @@ def test_confusion_matrix_against_a_hand_built_one(comparison, signal_data):
             int(((predicted == 0) & (y == 1)).sum()),  # fn
         )
         got = tuple(
-            int(v) for v in confusion_matrix_at_threshold(y, score, t, comparison=comparison)[:4]
+            int(v)
+            for v in confusion_matrix_at_threshold(y, score, t, comparison=comparison)[
+                :4
+            ]
         )
         assert got == expected, f"comparison={comparison} threshold={t}"
         # The four cells must partition the sample.
@@ -237,9 +264,9 @@ def test_perfectly_separable_data_reaches_the_maximum(metric):
     y = np.array([0] * 20 + [1] * 20)
     score = np.concatenate([np.linspace(0.01, 0.4, 20), np.linspace(0.6, 0.99, 20)])
     result = optimize_thresholds(y, score, metric=metric)
-    assert compute_metric_at_threshold(y, score, result.threshold, metric) == pytest.approx(
-        1.0, abs=1e-9
-    )
+    assert compute_metric_at_threshold(
+        y, score, result.threshold, metric
+    ) == pytest.approx(1.0, abs=1e-9)
 
 
 @pytest.mark.parametrize("metric", METRICS)

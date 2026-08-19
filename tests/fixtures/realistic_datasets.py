@@ -70,7 +70,10 @@ def make_realistic_binary_dataset(
         noise = rng.normal(0, noise_level, size=y_prob.shape)
         y_prob = np.clip(y_prob + noise, 0.01, 0.99)
 
-    description = f"Binary dataset: {n_samples} samples, {class_balance:.1%} positive, noise={noise_level}"
+    description = (
+        f"Binary dataset: {n_samples} samples, {class_balance:.1%} positive, "
+        f"noise={noise_level}"
+    )
 
     return BinaryDataset(y, y_prob, description)
 

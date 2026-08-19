@@ -1,4 +1,4 @@
-"""Property-based tests using Hypothesis to verify algorithm correctness and invariants."""
+"""Hypothesis property tests for algorithm correctness and invariants."""
 
 import numpy as np
 import pytest
@@ -162,7 +162,8 @@ class TestCoreInvariants:
             )
 
             # Piecewise should generally be at least as good as naive
-            # However, edge cases with identical probabilities may have implementation differences
+            # However, edge cases with identical probabilities may have implementation
+            # differences
             tolerance = 1e-10
             unique_probs = np.unique(probabilities)
             has_ties = len(unique_probs) < len(
@@ -205,7 +206,8 @@ class TestCoreInvariants:
         tie_fraction = max_tie_count / len(probabilities)
 
         if tie_fraction > 0.7:
-            # Skip cases with extensive tied probabilities as threshold shifts can be non-linear
+            # Skip cases with extensive tied probabilities as threshold shifts can be
+            # non-linear
             return
 
         # Get original optimal threshold
@@ -220,7 +222,8 @@ class TestCoreInvariants:
         threshold_up = optimize_thresholds(labels, shifted_up, metric="f1")
         threshold_down = optimize_thresholds(labels, shifted_down, metric="f1")
 
-        # For cases without extensive ties, threshold should shift approximately by epsilon
+        # For cases without extensive ties, threshold should shift approximately by
+        # epsilon
         # But allow larger tolerance for edge cases
         tolerance = max(0.2, epsilon * 2)  # More generous tolerance
 
@@ -233,7 +236,8 @@ class TestCoreInvariants:
         )
 
         assert shift_down_diff < tolerance, (
-            f"Threshold shift invariance violated (down): original={original_threshold}, "
+            f"Threshold shift invariance violated (down): "
+            f"original={original_threshold}, "
             f"shifted_down={threshold_down}, epsilon={epsilon}, diff={shift_down_diff}"
         )
 
@@ -250,11 +254,12 @@ class TestCoreInvariants:
         for metric in ["f1", "accuracy", "precision", "recall"]:
             result = optimize_thresholds(labels, probabilities, metric=metric)
             threshold = result.threshold
-            # Allow small tolerance outside [0,1] for boundary conditions and tie-breaking
+            # Allow small tolerance outside [0,1] for boundary conditions and
+            # tie-breaking
             tolerance = 1e-9
-            assert (
-                -tolerance <= threshold <= 1 + tolerance
-            ), f"Threshold {threshold} out of bounds for {metric}"
+            assert -tolerance <= threshold <= 1 + tolerance, (
+                f"Threshold {threshold} out of bounds for {metric}"
+            )
 
     @given(matched_labels_and_probabilities())
     @settings(max_examples=30)
@@ -274,9 +279,9 @@ class TestCoreInvariants:
             thresholds.append(threshold)
 
         # All results should be identical
-        assert all(
-            abs(t - thresholds[0]) < 1e-12 for t in thresholds
-        ), f"Non-deterministic results: {thresholds}"
+        assert all(abs(t - thresholds[0]) < 1e-12 for t in thresholds), (
+            f"Non-deterministic results: {thresholds}"
+        )
 
     @given(matched_labels_and_probabilities(min_size=4, max_size=30))
     @settings(max_examples=30)
@@ -296,9 +301,13 @@ class TestCoreInvariants:
         )
 
         # All elements should be non-negative
-        assert (
-            tp >= 0 and tn >= 0 and fp >= 0 and fn >= 0
-        ), f"Negative confusion matrix elements: TP={tp}, TN={tn}, FP={fp}, FN={fn}"
+        message = (
+            f"Negative confusion matrix elements: TP={tp}, TN={tn}, FP={fp}, FN={fn}"
+        )
+        assert tp >= 0, message
+        assert tn >= 0, message
+        assert fp >= 0, message
+        assert fn >= 0, message
 
     @given(matched_labels_and_probabilities(min_size=5, max_size=20))
     @settings(max_examples=30)
@@ -354,7 +363,8 @@ class TestStatisticalProperties:
         )
 
         # If original F1 is already very high (>=0.9), skip the test
-        # as there's little room for improvement and "perfect" separation may not actually be better
+        # as there's little room for improvement and "perfect" separation may not
+        # actually be better
         if original_f1 >= 0.9:
             return
 
@@ -410,7 +420,8 @@ class TestStatisticalProperties:
                 # Only fail if the difference is very substantial
                 pytest.fail(
                     f"Perfect separation much worse than original for {metric}: "
-                    f"{perfect_score} vs {original_score} (original_f1={original_f1:.3f}, "
+                    f"{perfect_score} vs {original_score} "
+                    f"(original_f1={original_f1:.3f}, "
                     f"pos_ratio={pos_ratio:.3f})"
                 )
 
@@ -463,9 +474,9 @@ class TestStatisticalProperties:
 
         except Exception as e:
             # Some methods might fail on edge cases, but should fail gracefully
-            assert isinstance(
-                e, ValueError | RuntimeError
-            ), f"Unexpected error type for method {method}: {type(e)}"
+            assert isinstance(e, ValueError | RuntimeError), (
+                f"Unexpected error type for method {method}: {type(e)}"
+            )
 
 
 class TestNumericalStability:
@@ -523,10 +534,9 @@ def valid_multiclass_labels(n_classes=3, min_size=6, max_size=30):
     @st.composite
     def _strategy(draw):
         size = draw(st.integers(min_size, max_size))
-        labels = draw(
+        return draw(
             arrays(dtype=np.int8, shape=size, elements=st.integers(0, n_classes - 1))
         )
-        return labels
 
     return _strategy()
 
@@ -547,8 +557,7 @@ def valid_multiclass_probabilities(n_classes=3, min_size=6, max_size=30):
         )
         # Normalize to sum to 1 (approximately)
         row_sums = np.sum(probs, axis=1, keepdims=True)
-        probs = probs / row_sums
-        return probs
+        return probs / row_sums
 
     return _strategy()
 
@@ -645,9 +654,9 @@ class TestMulticlassPropertyBased:
             zip(thresholds, manual_thresholds, strict=False)
         ):
             if i in unique_labels and np.sum(labels == i) > 0:
-                assert (
-                    abs(auto - manual) < 1e-6
-                ), f"Class {i} threshold mismatch: auto={auto}, manual={manual}"
+                assert abs(auto - manual) < 1e-6, (
+                    f"Class {i} threshold mismatch: auto={auto}, manual={manual}"
+                )
 
     @given(
         data=matched_multiclass_data(n_classes=3, min_size=12, max_size=20),
@@ -687,7 +696,10 @@ class TestMulticlassPropertyBased:
             assert len(cms) == probabilities.shape[1]
 
             for tp, tn, fp, fn in cms:
-                assert tp >= 0 and tn >= 0 and fp >= 0 and fn >= 0
+                assert tp >= 0
+                assert tn >= 0
+                assert fp >= 0
+                assert fn >= 0
 
         except (ValueError, RuntimeError):
             # Some averaging methods might fail on edge cases
@@ -713,9 +725,9 @@ class TestMulticlassPropertyBased:
 
         # All results should be identical
         for i, thresholds in enumerate(thresholds_list[1:], 1):
-            assert np.allclose(
-                thresholds_list[0], thresholds, atol=1e-12
-            ), f"Non-deterministic multiclass results: run 0 vs run {i}"
+            assert np.allclose(thresholds_list[0], thresholds, atol=1e-12), (
+                f"Non-deterministic multiclass results: run 0 vs run {i}"
+            )
 
     @given(
         data=matched_multiclass_data(n_classes=3, min_size=9, max_size=18),
@@ -750,9 +762,9 @@ class TestMulticlassPropertyBased:
 
             # Test weighted averaging
             score_weighted = multiclass_metric_ovr(cms, metric, "weighted")
-            assert (
-                0 <= score_weighted <= 1
-            ), f"Weighted {metric} out of bounds: {score_weighted}"
+            assert 0 <= score_weighted <= 1, (
+                f"Weighted {metric} out of bounds: {score_weighted}"
+            )
 
         except (ValueError, ZeroDivisionError):
             # Some metrics might fail on edge cases (e.g., no positives for precision)
@@ -790,7 +802,10 @@ class TestMulticlassPropertyBased:
         for cms in [cms_gt, cms_gte]:
             assert len(cms) == probabilities.shape[1]
             for tp, tn, fp, fn in cms:
-                assert tp >= 0 and tn >= 0 and fp >= 0 and fn >= 0
+                assert tp >= 0
+                assert tn >= 0
+                assert fp >= 0
+                assert fn >= 0
 
 
 class TestMulticlassMathematicalProperties:
@@ -834,9 +849,9 @@ class TestMulticlassMathematicalProperties:
 
             # Macro average should equal mean of per-class scores
             per_class_mean = np.mean(score_none)
-            assert (
-                abs(score_macro - per_class_mean) < 1e-10
-            ), f"Macro average {score_macro} != mean of per-class {per_class_mean}"
+            assert abs(score_macro - per_class_mean) < 1e-10, (
+                f"Macro average {score_macro} != mean of per-class {per_class_mean}"
+            )
 
         except (ValueError, ZeroDivisionError):
             # Some edge cases might cause mathematical issues
@@ -866,8 +881,10 @@ class TestMulticlassMathematicalProperties:
             class_probs = probabilities[:, class_idx]
             unique_class_probs = np.unique(class_probs)
 
-            # Threshold should be close to one of the unique probability values OR their midpoints
-            # The algorithm can choose midpoints between adjacent unique values for optimal cuts
+            # Threshold should be close to one of the unique probability values OR their
+            # midpoints
+            # The algorithm can choose midpoints between adjacent unique values for
+            # optimal cuts
             candidate_values = list(unique_class_probs)
 
             # Add midpoints between adjacent unique values as valid candidates
@@ -883,7 +900,8 @@ class TestMulticlassMathematicalProperties:
 
             min_distance = min(abs(threshold - p) for p in candidate_values)
             assert min_distance < 0.02, (
-                f"Class {class_idx} threshold {threshold} not close to any candidate value. "
+                f"Class {class_idx} threshold {threshold} not close to any candidate "
+                f"value. "
                 f"Candidates: {sorted(set(candidate_values))}"
             )
 
@@ -911,9 +929,10 @@ class TestPerformanceProperties:
 
         # Should complete in reasonable time even for large inputs
         expected_max_time = 0.1 * len(probabilities) / 100  # Scale with size
-        assert (
-            piecewise_time < expected_max_time
-        ), f"Piecewise optimization too slow: {piecewise_time:.4f}s for {len(probabilities)} samples"
+        assert piecewise_time < expected_max_time, (
+            f"Piecewise optimization too slow: {piecewise_time:.4f}s for "
+            f"{len(probabilities)} samples"
+        )
 
         # Result should be valid
         assert 0 <= threshold <= 1
@@ -964,9 +983,9 @@ class TestPerformanceProperties:
                 results[method] = result.threshold
 
                 # Should complete in reasonable time
-                assert (
-                    times[method] < 5.0
-                ), f"{method} took too long: {times[method]:.2f}s"
+                assert times[method] < 5.0, (
+                    f"{method} took too long: {times[method]:.2f}s"
+                )
 
                 # Should produce valid result
                 threshold = result.threshold
@@ -1064,9 +1083,9 @@ class TestPerformanceProperties:
                 end_time = time.time()
 
                 # Should complete in reasonable time
-                assert (
-                    end_time - start_time < 1.0
-                ), f"Edge case '{case_name}' too slow: {end_time - start_time:.4f}s"
+                assert end_time - start_time < 1.0, (
+                    f"Edge case '{case_name}' too slow: {end_time - start_time:.4f}s"
+                )
 
                 threshold = result.threshold
                 assert 0 <= threshold <= 1
@@ -1103,9 +1122,9 @@ class TestPerformanceProperties:
         assert time_gte < 1.0, f"'>=' comparison too slow: {time_gte:.4f}s"
 
         # Times should be similar (within factor of 2)
-        assert abs(time_gt - time_gte) < max(
-            time_gt, time_gte
-        ), f"Performance difference too large: {time_gt:.4f}s vs {time_gte:.4f}s"
+        assert abs(time_gt - time_gte) < max(time_gt, time_gte), (
+            f"Performance difference too large: {time_gt:.4f}s vs {time_gte:.4f}s"
+        )
 
         # Results should be valid
         assert 0 <= threshold_gt <= 1

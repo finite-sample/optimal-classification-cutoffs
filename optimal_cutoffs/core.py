@@ -5,13 +5,16 @@ Clean design focused on explainable auto-selection and consistent interfaces.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from numpy.typing import ArrayLike, NDArray
 
 
 class Task(Enum):
@@ -76,9 +79,15 @@ class OptimizationResult:
         """Clean representation showing what matters."""
         match self.task:
             case Task.BINARY:
-                return f"OptimizationResult(threshold={self.threshold:.3f}, {self.metric}={self.score:.3f})"
+                return (
+                    f"OptimizationResult(threshold={self.threshold:.3f}, "
+                    f"{self.metric}={self.score:.3f})"
+                )
             case _:
-                return f"OptimizationResult(task={self.task.value}, {self.metric}={self.score:.3f})"
+                return (
+                    f"OptimizationResult(task={self.task.value}, "
+                    f"{self.metric}={self.score:.3f})"
+                )
 
 
 def infer_task_with_explanation(
@@ -86,26 +95,19 @@ def infer_task_with_explanation(
 ) -> tuple[Task, list[str], list[str]]:
     """Infer task type with detailed explanation.
 
-    Parameters
-    ----------
-    y_true
-        True labels (not currently used for inference, reserved for future)
-    y_score
-        Predicted scores or probabilities used for task inference
+    Args:
+        y_true: True labels (not currently used for inference, reserved for future)
+        y_score: Predicted scores or probabilities used for task inference
 
-    Returns
-    -------
-    task : Task
+    Returns:
         Inferred task type
-    notes : list[str]
+        notes : list[str]
         Explanation of inference logic
-    warnings : list[str]
+        warnings : list[str]
         Any assumptions or caveats
 
-    Raises
-    ------
-    ValueError
-        If y_score shape cannot be interpreted for task inference.
+    Raises:
+        ValueError: If y_score shape cannot be interpreted for task inference.
     """
     y_score = np.asarray(y_score)
     notes: list[str] = []
@@ -116,7 +118,7 @@ def infer_task_with_explanation(
         return Task.BINARY, notes, warnings
 
     if y_score.ndim == 2:
-        n_samples, n_outputs = y_score.shape
+        _n_samples, n_outputs = y_score.shape
 
         if n_outputs == 1:
             notes.append("Detected 2D scores with 1 column → binary classification")
@@ -128,10 +130,9 @@ def infer_task_with_explanation(
             if np.allclose(prob_sums, 1.0, rtol=0.05):
                 notes.append("Probabilities sum to 1 → multiclass classification")
                 return Task.MULTICLASS, notes, warnings
-            else:
-                notes.append("Probabilities don't sum to 1 → multilabel classification")
-                warnings.append("Assuming independent binary labels")
-                return Task.MULTILABEL, notes, warnings
+            notes.append("Probabilities don't sum to 1 → multilabel classification")
+            warnings.append("Assuming independent binary labels")
+            return Task.MULTILABEL, notes, warnings
 
         # n_outputs > 2
         prob_sums = np.sum(y_score, axis=1)
@@ -140,12 +141,11 @@ def infer_task_with_explanation(
                 f"Probabilities sum to 1 with {n_outputs} classes → multiclass"
             )
             return Task.MULTICLASS, notes, warnings
-        else:
-            notes.append(
-                f"Probabilities don't sum to 1 with {n_outputs} outputs → multilabel"
-            )
-            warnings.append("Assuming independent binary labels")
-            return Task.MULTILABEL, notes, warnings
+        notes.append(
+            f"Probabilities don't sum to 1 with {n_outputs} outputs → multilabel"
+        )
+        warnings.append("Assuming independent binary labels")
+        return Task.MULTILABEL, notes, warnings
 
     raise ValueError(f"Cannot infer task from shape {y_score.shape}")
 
@@ -155,26 +155,18 @@ def select_method_with_explanation(
 ) -> tuple[str, list[str]]:
     """Select optimization method with explanation.
 
-    Parameters
-    ----------
-    task
-        Classification task type
-    metric
-        Metric to optimize
-    n_samples
-        Number of samples (may influence method selection)
+    Args:
+        task: Classification task type
+        metric: Metric to optimize
+        n_samples: Number of samples (may influence method selection)
 
-    Returns
-    -------
-    method : str
+    Returns:
         Selected method name
-    notes : list[str]
+        notes : list[str]
         Explanation of method selection
 
-    Raises
-    ------
-    ValueError
-        If task type is unknown or not supported.
+    Raises:
+        ValueError: If task type is unknown or not supported.
     """
     notes = []
 
@@ -188,17 +180,15 @@ def select_method_with_explanation(
             if is_piecewise_metric(metric) and has_vectorized_implementation(metric):
                 notes.append(f"Using O(n log n) exact optimization for {metric}")
                 return "sort_scan", notes
-            else:
-                notes.append(f"Using scipy optimization for {metric}")
-                return "minimize", notes
+            notes.append(f"Using scipy optimization for {metric}")
+            return "minimize", notes
 
         case Task.MULTICLASS:
             if metric == "f1":
                 notes.append("Using coordinate ascent for coupled multiclass F1")
                 return "coord_ascent", notes
-            else:
-                notes.append(f"Using independent per-class optimization for {metric}")
-                return "independent", notes
+            notes.append(f"Using independent per-class optimization for {metric}")
+            return "independent", notes
 
         case Task.MULTILABEL:
             notes.append(f"Using independent per-label optimization for {metric}")
@@ -213,24 +203,17 @@ def select_average_with_explanation(
 ) -> tuple[Average, list[str]]:
     """Select averaging strategy with explanation.
 
-    Parameters
-    ----------
-    task
-        Classification task type
-    metric
-        Metric to optimize
+    Args:
+        task: Classification task type
+        metric: Metric to optimize
 
-    Returns
-    -------
-    average : Average
+    Returns:
         Selected averaging strategy
-    notes : list[str]
+        notes : list[str]
         Explanation of averaging selection
 
-    Raises
-    ------
-    ValueError
-        If task type is unknown or not supported.
+    Raises:
+        ValueError: If task type is unknown or not supported.
     """
     notes = []
 
@@ -245,9 +228,8 @@ def select_average_with_explanation(
                     f"Using macro averaging for {metric} (balanced across classes)"
                 )
                 return Average.MACRO, notes
-            else:
-                notes.append(f"Using macro averaging for {metric}")
-                return Average.MACRO, notes
+            notes.append(f"Using macro averaging for {metric}")
+            return Average.MACRO, notes
 
         case _:
             raise ValueError(f"Unknown task: {task}")

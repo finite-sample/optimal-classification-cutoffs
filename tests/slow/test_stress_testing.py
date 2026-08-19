@@ -63,9 +63,9 @@ class TestConcurrentStressTesting:
 
         # Analyze results
         success_rate = success_count / n_iterations
-        assert (
-            success_rate > 0.95
-        ), f"Success rate {success_rate:.2%} too low. Failures: {failures[:5]}"
+        assert success_rate > 0.95, (
+            f"Success rate {success_rate:.2%} too low. Failures: {failures[:5]}"
+        )
 
         if execution_times:
             mean_time = np.mean(execution_times)
@@ -103,9 +103,9 @@ class TestConcurrentStressTesting:
                     print(f"Dataset {i} failed under memory pressure: {e}")
 
             # Should handle at least some datasets under memory pressure
-            assert (
-                success_count > n_datasets * 0.5
-            ), f"Only {success_count}/{n_datasets} succeeded under memory pressure"
+            assert success_count > n_datasets * 0.5, (
+                f"Only {success_count}/{n_datasets} succeeded under memory pressure"
+            )
 
         except MemoryError:
             pytest.skip("Insufficient memory for memory pressure test")
@@ -140,9 +140,9 @@ class TestConcurrentStressTesting:
         score_std = np.std(scores)
 
         # Results should vary (different data) but not be extremely variable
-        assert (
-            0.01 < threshold_std < 0.5
-        ), f"Threshold std {threshold_std:.4f} unexpected"
+        assert 0.01 < threshold_std < 0.5, (
+            f"Threshold std {threshold_std:.4f} unexpected"
+        )
         assert 0.01 < score_std < 0.3, f"Score std {score_std:.4f} unexpected"
 
 
@@ -193,9 +193,9 @@ class TestResourceExhaustionStress:
 
                 threshold = result.threshold
                 assert_valid_threshold(threshold)
-                assert (
-                    execution_time < 60.0
-                ), f"Scenario {i} took {execution_time:.2f}s with {max_size} samples"
+                assert execution_time < 60.0, (
+                    f"Scenario {i} took {execution_time:.2f}s with {max_size} samples"
+                )
 
             except (MemoryError, ValueError) as e:
                 print(f"Computational stress scenario {i} failed: {e}")
@@ -465,18 +465,20 @@ class TestLongRunningReliability:
 
         # Analyze results
         failure_rate = failure_count / n_iterations
-        assert (
-            failure_rate < failure_rate_threshold
-        ), f"Failure rate {failure_rate:.2%} exceeds threshold {failure_rate_threshold:.2%}"
+        assert failure_rate < failure_rate_threshold, (
+            f"Failure rate {failure_rate:.2%} exceeds threshold "
+            f"{failure_rate_threshold:.2%}"
+        )
 
         if initial_times and final_times:
             initial_mean = np.mean(initial_times)
             final_mean = np.mean(final_times)
             performance_ratio = final_mean / initial_mean
 
-            assert (
-                performance_ratio < performance_degradation_threshold
-            ), f"Performance degraded by {performance_ratio:.1f}x over sustained operation"
+            assert performance_ratio < performance_degradation_threshold, (
+                f"Performance degraded by {performance_ratio:.1f}x over sustained "
+                f"operation"
+            )
 
     @pytest.mark.slow
     def test_determinism_over_time(self):
@@ -509,6 +511,7 @@ class TestLongRunningReliability:
 
         # Should remain deterministic
         determinism_rate = 1 - (non_deterministic_count / n_iterations)
-        assert (
-            determinism_rate > 0.99
-        ), f"Determinism rate {determinism_rate:.2%} too low over {n_iterations} iterations"
+        assert determinism_rate > 0.99, (
+            f"Determinism rate {determinism_rate:.2%} too low over {n_iterations} "
+            f"iterations"
+        )

@@ -42,18 +42,20 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.stress)
 
         # Add slow marker to tests that are explicitly marked or in slow directory
-        if item.get_closest_marker("slow") or "slow/" in str(item.fspath):
-            if not hasattr(item, "_slow_marked"):
-                item.add_marker(pytest.mark.slow)
-                item._slow_marked = True
+        if (
+            item.get_closest_marker("slow") or "slow/" in str(item.fspath)
+        ) and not hasattr(item, "_slow_marked"):
+            item.add_marker(pytest.mark.slow)
+            item._slow_marked = True
 
 
 def pytest_runtest_setup(item):
     """Setup for individual test runs."""
     # Skip slow tests unless explicitly requested
-    if item.get_closest_marker("slow"):
-        if not item.config.getoption("--runslow", default=False):
-            pytest.skip("need --runslow option to run slow tests")
+    if item.get_closest_marker("slow") and not item.config.getoption(
+        "--runslow", default=False
+    ):
+        pytest.skip("need --runslow option to run slow tests")
 
 
 def pytest_addoption(parser):
@@ -72,7 +74,7 @@ def random_state():
     return np.random.RandomState(42)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def suppress_warnings():
     """Suppress common warnings during tests."""
     with warnings.catch_warnings():
@@ -82,7 +84,7 @@ def suppress_warnings():
         yield
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def sample_binary_data(random_state):
     """Provide sample binary classification data."""
     n_samples = 100
@@ -98,7 +100,7 @@ def sample_binary_data(random_state):
     return y_true, pred_prob
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def sample_multiclass_data(random_state):
     """Provide sample multiclass classification data."""
     n_samples = 100
@@ -116,13 +118,13 @@ def sample_multiclass_data(random_state):
     return y_true, pred_prob
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def sample_weights(random_state):
     """Provide sample weights for testing."""
     return random_state.uniform(0.5, 2.0, 100)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def performance_timer():
     """Provide a timer for performance testing."""
     import time
@@ -146,7 +148,7 @@ def performance_timer():
     return Timer()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def memory_monitor():
     """Provide memory monitoring for performance tests."""
     try:
@@ -220,7 +222,10 @@ def assert_valid_threshold(threshold):
 
 def assert_confusion_matrix_valid(tp, tn, fp, fn, total_samples=None):
     """Assert that confusion matrix values are valid."""
-    assert tp >= 0 and tn >= 0 and fp >= 0 and fn >= 0
+    assert tp >= 0
+    assert tn >= 0
+    assert fp >= 0
+    assert fn >= 0
     assert all(np.isfinite(x) for x in [tp, tn, fp, fn])
 
     if total_samples is not None:

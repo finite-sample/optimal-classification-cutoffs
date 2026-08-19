@@ -33,7 +33,8 @@ class TestLabelDistributionEdgeCases:
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
-        # Accuracy should be reasonable (allow for optimization challenges in degenerate cases)
+        # Accuracy should be reasonable (allow for optimization challenges in degenerate
+        # cases)
         score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
         # Every label is the same class, so predicting that class for everything is
         # perfect: accuracy 1.0 is achievable and anything less means the optimizer
@@ -50,7 +51,8 @@ class TestLabelDistributionEdgeCases:
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
-        # Accuracy should be reasonable (allow for optimization challenges in degenerate cases)
+        # Accuracy should be reasonable (allow for optimization challenges in degenerate
+        # cases)
         score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
         # Every label is the same class, so predicting that class for everything is
         # perfect: accuracy 1.0 is achievable and anything less means the optimizer

@@ -59,9 +59,9 @@ class TestMulticlassWorkflows:
             for threshold in thresholds:
                 if method == "coord_ascent":
                     # Coordinate ascent can produce thresholds outside [0,1]
-                    assert np.isfinite(
-                        threshold
-                    ), f"Threshold {threshold} should be finite"
+                    assert np.isfinite(threshold), (
+                        f"Threshold {threshold} should be finite"
+                    )
                 else:
                     assert_valid_threshold(threshold)
 
@@ -269,7 +269,8 @@ class TestCoordinateAscent:
 
         thresholds = result.thresholds
         assert len(thresholds) == 3
-        # Coordinate ascent thresholds can be outside [0,1] - this is legitimate behavior
+        # Coordinate ascent thresholds can be outside [0,1] - this is legitimate
+        # behavior
         for threshold in thresholds:
             assert np.isfinite(threshold), f"Threshold {threshold} should be finite"
 
@@ -324,7 +325,8 @@ class TestCoordinateAscent:
         thresholds = result.thresholds
 
         # Test prediction logic (simplified version)
-        # In practice, coordinate ascent uses argmax(P - tau) for single-label consistency
+        # In practice, coordinate ascent uses argmax(P - tau) for single-label
+        # consistency
         n_samples = len(y_true)
         predictions = np.zeros(n_samples, dtype=int)
 
@@ -474,9 +476,9 @@ class TestMulticlassPerformance:
             times.append(elapsed)
 
             # Should complete in reasonable time
-            assert (
-                elapsed < 10.0
-            ), f"Optimization took {elapsed:.2f}s for {n_classes} classes"
+            assert elapsed < 10.0, (
+                f"Optimization took {elapsed:.2f}s for {n_classes} classes"
+            )
 
     def test_multiclass_scaling_with_samples(self):
         """Test that multiclass optimization scales with number of samples."""

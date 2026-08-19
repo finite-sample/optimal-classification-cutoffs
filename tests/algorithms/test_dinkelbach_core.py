@@ -93,7 +93,8 @@ class TestDinkelbachAPI:
         result = optimize_thresholds(y_true, y_prob, mode="expected", metric="f1")
 
         threshold = result.threshold
-        assert hasattr(result, "threshold") and hasattr(result, "score")
+        assert hasattr(result, "threshold")
+        assert hasattr(result, "score")
         threshold_expected = result.threshold
         # Both should be valid
         assert_valid_threshold(threshold)
@@ -199,7 +200,8 @@ class TestDinkelbachBasicFunctionality:
 
         # Should work for F1 metric and return a tuple
         result = optimize_thresholds(y_true, y_prob, mode="expected", metric="f1")
-        assert hasattr(result, "threshold") and hasattr(result, "score")
+        assert hasattr(result, "threshold")
+        assert hasattr(result, "score")
         threshold_dinkelbach, f1_score_dinkelbach = result.threshold, result.score
         # Both should be valid values
         assert 0.0 <= threshold_dinkelbach <= 1.0

@@ -37,26 +37,27 @@ class TestAveragingMathematicalIdentities:
     def known_confusion_matrices(self):
         """Create known confusion matrices for testing identities."""
         # Manually constructed confusion matrices with known properties
-        # Class 0: TP=10, TN=80, FP=5, FN=5   -> Precision=10/15=0.667, Recall=10/15=0.667, F1=0.667
-        # Class 1: TP=8,  TN=85, FP=3, FN=4   -> Precision=8/11=0.727,  Recall=8/12=0.667,  F1=0.696
-        # Class 2: TP=12, TN=82, FP=2, FN=4   -> Precision=12/14=0.857, Recall=12/16=0.750, F1=0.800
-        confusion_matrices = [
+        # Class 0: TP=10, TN=80, FP=5, FN=5   -> Precision=10/15=0.667,
+        # Recall=10/15=0.667, F1=0.667
+        # Class 1: TP=8,  TN=85, FP=3, FN=4   -> Precision=8/11=0.727,
+        # Recall=8/12=0.667,  F1=0.696
+        # Class 2: TP=12, TN=82, FP=2, FN=4   -> Precision=12/14=0.857,
+        # Recall=12/16=0.750, F1=0.800
+        return [
             (10, 80, 5, 5),  # Class 0
             (8, 85, 3, 4),  # Class 1
             (12, 82, 2, 4),  # Class 2
         ]
-        return confusion_matrices
 
     @pytest.fixture
     def balanced_confusion_matrices(self):
         """Create balanced confusion matrices where all classes have equal support."""
         # Each class has exactly 20 true instances (TP + FN = 20)
-        confusion_matrices = [
+        return [
             (15, 70, 5, 5),  # Class 0: support=20
             (14, 71, 4, 6),  # Class 1: support=20
             (16, 69, 3, 4),  # Class 2: support=20
         ]
-        return confusion_matrices
 
     def test_macro_f1_identity(self, known_confusion_matrices):
         """Test that macro F1 equals the mean of per-class F1 scores."""
@@ -166,9 +167,9 @@ class TestAveragingMathematicalIdentities:
 
         # Verify data is actually balanced
         supports = [tp + fn for tp, tn, fp, fn in cms]
-        assert all(
-            support == supports[0] for support in supports
-        ), "Test data should be balanced"
+        assert all(support == supports[0] for support in supports), (
+            "Test data should be balanced"
+        )
 
         # Compute both averages
         macro_f1 = multiclass_metric_ovr(cms, "f1", average="macro")
@@ -190,9 +191,9 @@ class TestAveragingMathematicalIdentities:
             macro_score = multiclass_metric_ovr(cms, metric_name, average="macro")
             expected_macro = np.mean(per_class_scores)
 
-            assert macro_score == pytest.approx(
-                expected_macro, abs=1e-10
-            ), f"Macro identity failed for {metric_name}"
+            assert macro_score == pytest.approx(expected_macro, abs=1e-10), (
+                f"Macro identity failed for {metric_name}"
+            )
 
             # Test weighted identity
             supports = [tp + fn for tp, tn, fp, fn in cms]
@@ -208,9 +209,9 @@ class TestAveragingMathematicalIdentities:
             )
             weighted_score = multiclass_metric_ovr(cms, metric_name, average="weighted")
 
-            assert weighted_score == pytest.approx(
-                expected_weighted, abs=1e-10
-            ), f"Weighted identity failed for {metric_name}"
+            assert weighted_score == pytest.approx(expected_weighted, abs=1e-10), (
+                f"Weighted identity failed for {metric_name}"
+            )
 
     def test_micro_precision_recall_identity(self, known_confusion_matrices):
         """Test micro-averaging identities for precision and recall specifically."""
@@ -236,7 +237,8 @@ class TestAveragingMathematicalIdentities:
         assert micro_recall == pytest.approx(expected_micro_recall, abs=1e-10)
 
     def test_micro_accuracy_identity(self, known_confusion_matrices):
-        """Test that OvR micro accuracy correctly raises error (it computes Jaccard/IoU, not accuracy)."""
+        """OvR micro accuracy correctly raises error (it computes Jaccard/IoU, not
+        accuracy)."""
         cms = known_confusion_matrices
 
         # OvR micro accuracy is problematic - it computes Jaccard/IoU, not true accuracy
@@ -290,7 +292,7 @@ class TestAveragingMathematicalIdentities:
             assert recall_score == pytest.approx(1.0, abs=1e-10)
 
     def test_real_world_confusion_matrices(self):
-        """Test identities on realistic confusion matrices from actual classification."""
+        """Identities on realistic confusion matrices from actual classification."""
         # Simulate realistic confusion matrices that might come from actual predictions
         np.random.seed(42)
         n_samples = 300
@@ -314,9 +316,9 @@ class TestAveragingMathematicalIdentities:
 
             # Macro identity should hold
             expected_macro = np.mean(per_class_scores)
-            assert macro_score == pytest.approx(
-                expected_macro, abs=1e-10
-            ), f"Macro identity failed for {metric_name} on realistic data"
+            assert macro_score == pytest.approx(expected_macro, abs=1e-10), (
+                f"Macro identity failed for {metric_name} on realistic data"
+            )
 
 
 if __name__ == "__main__":
