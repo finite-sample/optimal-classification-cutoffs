@@ -22,5 +22,12 @@ jobs:
       # ["3.11", "3.14"] cannot resolve its first leg.
       python-versions: '["3.12", "3.13", "3.14"]'
       wheel-import: optimal_cutoffs
+      # The reusable lint job derives the package directory from the
+      # distribution name, so it looks for optimal_classification_cutoffs/ and
+      # errors out; the import name is optimal_cutoffs, set through
+      # [tool.uv.build-backend] module-name, which it does not consult. Run it
+      # locally with `uvx --from pydoclint==0.9.1 pydoclint optimal_cutoffs`
+      # until reusable-ci learns to read module-name.
+      run-pydoclint: false
       coverage-floor: 65
       run-preen: true
