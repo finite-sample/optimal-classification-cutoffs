@@ -42,7 +42,9 @@ html_theme_options = {
         "color-brand-content": "#93c5fd",
     },
 }
-html_static_path = ["_static"]
+# No static assets: docs/_static/ is gitignored, so the runner has no such
+# directory and Sphinx warns -- fatal under the docs workflow's -W.
+html_static_path = []
 
 autodoc_default_options = {
     "members": True,

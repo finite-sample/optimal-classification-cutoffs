@@ -6,28 +6,39 @@ ensuring consistent behavior across all modules that use JIT compilation.
 
 from typing import Any
 
+
+# The pure-Python fallbacks are declared first and numba overwrites them below
+# when it is installed. Declaring them the other way round leaves every name
+# here typed as an unresolved import for anyone without the optional
+# accelerator, which is most consumers and every type checker in CI.
+def jit(*args: Any, **kwargs: Any) -> Any:
+    """Stand in for `numba.jit`, returning the function unchanged."""
+
+    def decorator(func):
+        return func
+
+    return decorator
+
+
+def prange(*args: Any, **kwargs: Any) -> Any:
+    """Stand in for `numba.prange`, which is `range` without numba."""
+    return range(*args, **kwargs)
+
+
+float64: Any = float
+int32: Any = int
+
 try:
-    from numba import float64, int32, jit, prange
+    from numba import (  # pyright: ignore[reportMissingImports]
+        float64,
+        int32,
+        jit,
+        prange,
+    )
 
     NUMBA_AVAILABLE = True
 except ImportError:
     NUMBA_AVAILABLE = False
-
-    # Define dummy decorators for when numba is not available
-    def jit(*args, **kwargs):
-        """Stand in for `numba.jit`, returning the function unchanged."""
-
-        def decorator(func):
-            return func
-
-        return decorator
-
-    def prange(*args, **kwargs):
-        """Stand in for `numba.prange`, which is `range` without numba."""
-        return range(*args, **kwargs)
-
-    float64 = float
-    int32 = int
 
 
 def numba_with_fallback(**numba_kwargs: Any):
