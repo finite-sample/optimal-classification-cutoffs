@@ -744,7 +744,7 @@ class TestMulticlassPropertyBased:
 
         try:
             thresholds = optimize_thresholds(
-                labels, probabilities, metric, average="macro"
+                labels, probabilities, metric=metric, average="macro"
             )
 
             # Get confusion matrices

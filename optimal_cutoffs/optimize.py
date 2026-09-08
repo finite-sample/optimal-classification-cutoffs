@@ -590,7 +590,7 @@ def find_optimal_threshold_multiclass(
 
         # Call optimization function directly based on selected method
         if optimize_fn is optimize_scipy:
-            result = optimize_scipy(
+            result = optimize_scipy(  # preen: allow-dropped-arg
                 true_binary_flat,
                 pred_prob_flat,
                 metric,
@@ -638,7 +638,7 @@ def find_optimal_threshold_multiclass(
     for c in range(n_classes):
         # Call optimization function directly based on selected method
         if optimize_fn is optimize_scipy:
-            result = optimize_scipy(
+            result = optimize_scipy(  # preen: allow-dropped-arg
                 true_binary_all[:, c],
                 pred_prob[:, c],
                 metric,
