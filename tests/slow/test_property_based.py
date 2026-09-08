@@ -745,7 +745,7 @@ class TestMulticlassPropertyBased:
         try:
             thresholds = optimize_thresholds(
                 labels, probabilities, metric=metric, average="macro"
-            )
+            ).thresholds
 
             # Get confusion matrices
             cms = multiclass_confusion_matrices_at_thresholds(
