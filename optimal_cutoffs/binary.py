@@ -247,7 +247,7 @@ def optimize_metric_binary(
                 tolerance=tolerance,
             )
         case "minimize":
-            result = optimize_scipy(
+            result = optimize_scipy(  # preen: allow-dropped-arg
                 y_true,
                 y_score,
                 metric,

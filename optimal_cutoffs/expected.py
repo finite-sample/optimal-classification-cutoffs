@@ -429,7 +429,7 @@ def dinkelbach_expected_fbeta_multilabel(
         else:
             w_flat = None
 
-        result = dinkelbach_expected_fbeta_binary(p_flat, beta, w_flat)
+        result = dinkelbach_expected_fbeta_binary(p_flat, beta, w_flat, comparison)
         threshold = result.threshold
         score = result.score
 
@@ -451,7 +451,9 @@ def dinkelbach_expected_fbeta_multilabel(
     scores = np.zeros(n_classes)
 
     for k in range(n_classes):
-        result = dinkelbach_expected_fbeta_binary(P[:, k], beta, sample_weight)
+        result = dinkelbach_expected_fbeta_binary(
+            P[:, k], beta, sample_weight, comparison
+        )
         thresholds[k] = result.threshold
         scores[k] = result.score
 
