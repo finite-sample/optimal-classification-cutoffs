@@ -92,6 +92,11 @@ convention = "google"
 "optimal_cutoffs/optimize.py" = ["ARG001"]
 
 [tool.pytest.ini_options]
+minversion = "8"
+log_level = "INFO"
+xfail_strict = true
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
 filterwarnings = [
     # Suppress specific expected warnings in tests
     "ignore:Multiclass probabilities don't sum to 1.0:UserWarning",
