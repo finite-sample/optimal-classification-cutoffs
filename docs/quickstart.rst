@@ -148,6 +148,6 @@ Next Steps
 ----------
 
 * Read the :doc:`user_guide` for detailed explanations and advanced features
-* Check out :doc:`examples` for more comprehensive examples
+* Check out :doc:`examples <auto_examples/index>` for worked examples
 * Explore :doc:`advanced` topics like cross-validation and custom metrics
 * Understand the :doc:`theory` behind why this approach works better than standard methods
