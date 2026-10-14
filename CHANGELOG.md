@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-14
+
+This is a major release because results change: each fix below makes a
+documented call return a different, correct answer.
+
+### Fixed
+- `optimize_decisions` read the cost matrix transposed. The documented layout
+  (rows are the true class, columns the predicted class) now applies. Any
+  non-symmetric cost matrix gives different decisions; on the README's own
+  example the shipped rule cost 1.63 per case against an achievable 0.55.
+- `method="auto"` skipped the exact optimizer for `accuracy`, `iou` and
+  `specificity`, returning a suboptimal threshold on most datasets without a
+  warning. It now uses the exact optimizer for every piecewise-constant metric.
+- `mode="bayes"` ignored the `tp` and `tn` utilities and used only `fp` and
+  `fn`. All four now enter the closed-form threshold, matching the empirical
+  path.
+- `cross_validate` re-optimized the threshold on each test fold, so it reported
+  test-fold maxima rather than held-out scores (about +0.05 F1 in one check).
+  It now scores each test fold at the threshold chosen on its training fold.
+
+### Changed
+- **Breaking:** the first argument of `optimize_decisions` is `y_score`, not
+  `y_prob`, matching `optimize_thresholds`.
+- `optimize_thresholds` takes `utility`, `fp_costs`, `fn_costs`, `comparison`
+  and `tolerance` as explicit keyword arguments.
+- CI, docs and release workflows come from py-canon; docstrings follow the
+  Google style.
+
 ## [1.1.2] - 2025-12-25
 
 ### Added
