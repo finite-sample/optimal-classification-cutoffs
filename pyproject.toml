@@ -51,7 +51,6 @@ line-length = 88
 target-version = "py312"
 exclude = [
     "docs/",
-    "*.ipynb",  # Exclude Jupyter notebooks
 ]
 
 [tool.ruff.lint]
@@ -126,13 +125,12 @@ docs = [
     "sphinx>=8",
     "py-canon @ git+https://github.com/gojiplus/py-canon@v1",
     "furo",
-    # myst-nb pulls myst-parser in and renders docs/examples/*.ipynb without
-    # the pandoc binary nbsphinx required.
-    "myst-nb>=1.1",
+    "myst-parser",
     "sphinx-copybutton",
+    # sphinx-gallery runs the scripts in docs/examples during the build.
+    "sphinx-gallery>=0.19",
     "matplotlib",
-    "pandas",
-    "ipywidgets",
+    "scikit-learn",
 ]
 
 dev = [
@@ -176,7 +174,7 @@ show-filenames-in-every-violation-message = true
 
 [tool.deptry]
 # Exclude specific paths from analysis
-exclude = [".venv", "build", "dist", ".*\\.ipynb$"]
+exclude = [".venv", "build", "dist"]
 extend_exclude = ["tests", "examples", "docs"]
 known_first_party = ["optimal_cutoffs"]
 

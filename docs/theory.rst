@@ -114,8 +114,6 @@ The following plot demonstrates the piecewise-constant nature of F1 score::
    # The F1 score will be constant between each pair of consecutive probabilities
    # and will only change at the breakpoints: {0.1, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9}
 
-See ``examples/piecewise_visualization.ipynb`` for an interactive demonstration.
-
 Non-Piecewise Metrics
 ~~~~~~~~~~~~~~~~~~~~~
 

@@ -29,7 +29,7 @@ Most classifiers output probabilities, but decisions need thresholds. The defaul
    :caption: User Guide
 
    user_guide
-   examples
+   auto_examples/index
    advanced
 
 .. toctree::

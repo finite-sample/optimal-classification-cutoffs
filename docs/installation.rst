@@ -38,11 +38,11 @@ For development purposes, clone the repository and install in editable mode:
    cd optimal-classification-cutoffs
    pip install -e .
 
-To install with example dependencies (for running example notebooks):
+The examples are scripts in ``docs/examples``. Run one with:
 
 .. code-block:: bash
 
-   pip install -e ".[examples]"
+   uv run --group docs python docs/examples/plot_binary_threshold.py
 
 Verification
 ------------

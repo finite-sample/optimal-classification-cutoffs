@@ -41,3 +41,5 @@ test_*.txt
 # Sphinx build output (py-canon docs workflow)
 /_site
 /_doctest
+docs/auto_examples/
+docs/sg_execution_times.rst

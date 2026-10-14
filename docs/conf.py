@@ -4,14 +4,15 @@ from py_canon.sphinx import configure
 
 configure(globals())
 
-# myst-nb renders the notebooks under docs/examples/ and subsumes myst-parser,
-# which must not be loaded alongside it. nbsphinx was the previous renderer and
-# needed a pandoc binary that the shared docs workflow does not install.
-extensions = [e for e in extensions if e != "myst_parser"] + ["myst_nb"]  # noqa: F821
+extensions += ["sphinx_gallery.gen_gallery"]  # noqa: F821
 
-# The notebooks are committed with their outputs; re-running them on every docs
-# build costs minutes and makes the build depend on matplotlib rendering.
-nb_execution_mode = "off"
+# Each example runs at build time; an example that raises fails the build.
+sphinx_gallery_conf = {
+    "examples_dirs": "examples",
+    "gallery_dirs": "auto_examples",
+    "filename_pattern": "/plot_",
+    "download_all_examples": False,
+}
 
 # autosummary_generate writes stubs for every autosummary directive; the API
 # pages here list members explicitly instead, and the unwritten stubs otherwise
