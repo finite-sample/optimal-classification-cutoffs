@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "optimal-classification-cutoffs"
-version = "2.0.1"
+version = "3.0.0"
 description = "Utilities for computing optimal classification cutoffs for binary and multiclass classification"
 readme = "README.md"
 license = "MIT"
@@ -171,7 +171,6 @@ allow-init-docstring = true
 exclude = '\.venv|tests|docs'
 check-arg-order = true
 should-document-star-arguments = true
-ignore-underscore-args = true
 ignore-private-args = false
 show-filenames-in-every-violation-message = true
 
