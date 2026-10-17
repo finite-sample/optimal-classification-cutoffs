@@ -212,8 +212,8 @@ def test_expected_mode_matches_an_independent_expected_f1_grid():
 #
 # The most productive tests in this audit were transformations that provably
 # cannot change the answer, because a violation is a bug rather than a
-# judgement call. The two that started it -- unit weights reproducing the
-# unweighted fit, and duplicating a row equalling weight 2 -- generalise into
+# judgment call. The two that started it -- unit weights reproducing the
+# unweighted fit, and duplicating a row equalling weight 2 -- generalize into
 # the family below.
 # ---------------------------------------------------------------------------
 

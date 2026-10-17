@@ -191,7 +191,7 @@ class TestOptimizationWithTies:
                 raise
 
     def test_plateau_sensitivity_detailed(self):
-        """Behaviour when the optimal score plateau includes tied probabilities."""
+        """Behavior when the optimal score plateau includes tied probabilities."""
         # Create a case where multiple thresholds achieve the same optimal score
         # but tie handling affects the actual predictions
         probs = np.array([0.1, 0.4, 0.4, 0.4, 0.8])

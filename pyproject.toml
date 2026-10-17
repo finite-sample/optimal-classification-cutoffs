@@ -70,7 +70,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 # Unused fixture arguments and private-member access are how tests are written.
-# N802/N806: test names and locals carry the same maths notation as the code
+# N802/N806: test names and locals carry the same math notation as the code
 # under test (D for the utility denominator, P for a probability matrix).
 # T201: several suites print diagnostics; pytest captures them.
 "tests/**" = ["S101", "D", "ARG", "SLF", "B007", "N802", "N803", "N806", "T201", "PT017"]
@@ -190,3 +190,6 @@ DEP004 = ["numba"]
 
 # DEP003: Allow transitive dependencies in examples/notebooks
 DEP003 = ["IPython"]
+
+[tool.codespell]
+builtin = "clear,rare,en-GB_to_en-US"

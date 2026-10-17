@@ -1,6 +1,6 @@
-"""Tests that the implementation honours its own documented contracts.
+"""Tests that the implementation honors its own documented contracts.
 
-Each test here pins a behaviour that the package's README or docstrings state
+Each test here pins a behavior that the package's README or docstrings state
 explicitly, and that was previously computed differently without any error or
 warning (silent wrongness).
 """
@@ -37,7 +37,7 @@ class TestCostMatrixOrientation:
         np.testing.assert_array_equal(got, expected)
 
     def test_cost_matrix_minimises_documented_cost(self):
-        """Decisions minimise mean cost_matrix[true, pred], as documented."""
+        """Decisions minimize mean cost_matrix[true, pred], as documented."""
         rng = np.random.default_rng(0)
         p = rng.uniform(0, 1, 20000)
         scores = np.column_stack([1 - p, p])

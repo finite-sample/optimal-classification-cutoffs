@@ -103,7 +103,7 @@ class TestExplainableAutoSelection:
         assert any("O(n log n)" in note for note in result.notes)
 
         # A metric registered without a piecewise/vectorized implementation falls back
-        # to scipy minimisation.
+        # to scipy minimization.
         from optimal_cutoffs import metrics
 
         metrics.register(
