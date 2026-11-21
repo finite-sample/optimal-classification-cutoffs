@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Binary threshold selection now finds the best attainable score when predictions tie. Previously, rearranging equally scored observations could change the reported optimum.
+
 ## [3.0.0] - 2026-10-14
 
 This is a major release because results change: each fix below makes a

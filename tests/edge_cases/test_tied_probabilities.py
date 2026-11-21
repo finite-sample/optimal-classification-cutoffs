@@ -23,6 +23,42 @@ from tests.fixtures.data_generators import generate_tied_probabilities
 class TestTiedProbabilityHandling:
     """Test handling of tied probability values."""
 
+    @pytest.mark.parametrize("comparison", [">", ">="])
+    @pytest.mark.parametrize("weights", [None, [2.0, 1.0, 1.5, 1.0, 2.0]])
+    def test_best_attainable_f1_is_invariant_to_tied_row_order(
+        self, comparison, weights
+    ):
+        scores = np.array([0.8, 0.6, 0.4, 0.2, 0.2])
+        labels = np.array([1, 1, 0, 1, 0])
+        mass = np.ones(5) if weights is None else np.array(weights)
+
+        def f1(pred):
+            return (
+                2
+                * mass[pred & (labels == 1)].sum()
+                / (mass[pred].sum() + mass[labels == 1].sum())
+            )
+
+        above = np.greater if comparison == ">" else np.greater_equal
+        best = max(f1(above(scores, t)) for t in [-np.inf, *scores, np.inf])
+        for order in ([0, 1, 2, 3, 4], [0, 1, 2, 4, 3]):
+            result = optimize_thresholds(
+                labels[order],
+                scores[order],
+                comparison=comparison,
+                sample_weight=None if weights is None else mass[order],
+            )
+            assert result.score == pytest.approx(best)
+            assert f1(result.predict(scores).astype(bool)) == pytest.approx(best)
+
+    @pytest.mark.parametrize("comparison", [">", ">="])
+    def test_adjacent_representable_scores_are_separable(self, comparison):
+        scores = np.array([0.5, np.nextafter(0.5, np.inf)])
+        labels = np.array([0, 1])
+        result = optimize_thresholds(labels, scores, comparison=comparison)
+        np.testing.assert_array_equal(result.predict(scores), labels)
+        assert result.score == 1.0
+
     def test_all_identical_probabilities(self):
         """Test optimization when all probabilities are identical."""
         y_true = np.array([0, 1, 0, 1, 0, 1])
