@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-11-21
+
 ### Fixed
 
 - Empirical multiclass fits with `average="micro"` now select the shared-cutoff method automatically. The reported score evaluates the returned single-label predictions. The common cutoff is fitted on pooled class indicators and its argmax fallback always predicts the highest-probability class.
+- The macro F1 margin solver now checks attainable tied decisions and accepts a coordinate update only when its returned predictions improve the score. Previously it could report a higher F1 than the returned classifier achieved.
 
 ## [3.0.1] - 2026-11-21
 
