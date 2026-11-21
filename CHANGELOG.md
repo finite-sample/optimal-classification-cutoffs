@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Empirical multiclass fits with `average="micro"` now select the shared-cutoff method automatically. The reported score evaluates the returned single-label predictions. The common cutoff is fitted on pooled class indicators and its argmax fallback always predicts the highest-probability class.
+
 ## [3.0.1] - 2026-11-21
 
 ### Fixed

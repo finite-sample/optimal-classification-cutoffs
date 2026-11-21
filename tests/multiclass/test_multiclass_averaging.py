@@ -30,6 +30,51 @@ def multiclass_confusion_matrices_at_thresholds(
     return cms
 
 
+@pytest.mark.parametrize("method", ["auto", "micro"])
+@pytest.mark.parametrize("comparison", [">", ">="])
+@pytest.mark.parametrize("metric", ["f1", "precision", "recall", "accuracy"])
+def test_single_label_micro_scores_its_returned_decisions(method, comparison, metric):
+    y = np.array([0, 1, 2, 0, 0, 2, 1, 0])
+    p = (
+        np.array(
+            [
+                [5, 2, 1],
+                [5, 2, 1],
+                [4, 1, 3],
+                [3, 2, 3],
+                [2, 2, 4],
+                [3, 1, 4],
+                [5, 2, 1],
+                [3, 2, 3],
+            ]
+        )
+        / 8
+    )
+    # A common cutoff cannot change the highest-probability class in a row.
+    expected = [0, 0, 0, 0, 2, 2, 0, 0]
+    for weights, expected_score in [(None, 4 / 8), ([3, 1, 1, 1, 1, 1, 1, 1], 6 / 10)]:
+        fit = optimize_thresholds(
+            y,
+            p,
+            average="micro",
+            metric=metric,
+            comparison=comparison,
+            method=method,
+            sample_weight=weights,
+        )
+        assert fit.method == "micro"
+        assert fit.average.value == "micro"
+        assert np.unique(fit.thresholds).size == 1
+        np.testing.assert_array_equal(fit.predict(p), expected)
+        assert fit.score == pytest.approx(expected_score)
+
+
+def test_explicit_micro_method_infers_micro_average():
+    fit = optimize_thresholds([0, 1], [[0.8, 0.2], [0.8, 0.2]], method="micro")
+    assert fit.average.value == "micro"
+    assert fit.score == pytest.approx(0.5)
+
+
 class TestMulticlassAveragingSemantics:
     """Test suite for multiclass averaging strategies."""
 

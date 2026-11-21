@@ -218,9 +218,10 @@ def optimize_micro_multiclass(
 ) -> OptimizationResult:
     """Optimize micro-averaged multiclass metrics using single threshold.
 
-    For micro averaging, we use a single threshold applied to all classes,
-    then predict the class with highest valid probability. This reduces to
-    a single binary optimization problem on flattened data.
+    Fit the shared cutoff on pooled one-vs-rest decisions. For single-label
+    prediction, the highest probability always wins: if it fails the shared
+    cutoff, all other classes fail too and the fallback selects the same class.
+    The returned score evaluates these single-label predictions.
 
     Decision rule: ŷ = argmax{j: p_j ≥ τ} p_j (or argmax p_j if none valid)
 
@@ -276,15 +277,19 @@ def optimize_micro_multiclass(
 
     optimal_threshold = result.thresholds[0]
 
+    from .metrics_core import compute_multiclass_metrics_from_labels
     from .validation import make_multiclass_predictor
 
-    # Return same threshold for all classes
     thresholds = np.full(n_classes, optimal_threshold, dtype=np.float64)
+    predict = make_multiclass_predictor(thresholds, comparison)
+    score = compute_multiclass_metrics_from_labels(
+        y_true, predict(y_score), metric, "micro", sample_weight, n_classes
+    )
 
     return OptimizationResult(
         thresholds=thresholds,
-        scores=result.scores,
-        predict=make_multiclass_predictor(thresholds, comparison),
+        scores=np.atleast_1d(score),
+        predict=predict,
         task=Task.MULTICLASS,
         metric=f"micro_{metric}",
         n_classes=n_classes,

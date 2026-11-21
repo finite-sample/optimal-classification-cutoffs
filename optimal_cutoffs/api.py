@@ -195,6 +195,13 @@ def optimize_thresholds(
 
     # 2. Average strategy selection
     match average:
+        case Average.AUTO if (
+            inferred_task == Task.MULTICLASS
+            and mode == "empirical"
+            and method == "micro"
+        ):
+            inferred_average = Average.MICRO
+            all_notes.append("Using micro averaging for the shared-cutoff method")
         case Average.AUTO:
             inferred_average, avg_notes = select_average_with_explanation(
                 inferred_task, metric
@@ -208,7 +215,10 @@ def optimize_thresholds(
     if method == "auto":
         n_samples = len(y_true)
         inferred_method, method_notes = select_method_with_explanation(
-            inferred_task, metric, n_samples
+            inferred_task,
+            metric,
+            n_samples,
+            average=inferred_average if mode == "empirical" else Average.AUTO,
         )
         all_notes.extend(method_notes)
     else:
@@ -550,6 +560,8 @@ def _optimize_multiclass(
             )
 
         case "micro":
+            if average != Average.MICRO:
+                raise ValueError("The multiclass micro method requires average='micro'")
             from .multiclass import optimize_micro_multiclass
 
             return optimize_micro_multiclass(

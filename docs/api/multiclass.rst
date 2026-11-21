@@ -91,18 +91,19 @@ Macro Averaging (Default)
 Micro Averaging
 ~~~~~~~~~~~~~~~
 
+For empirical fits with ``average="micro"``, automatic selection uses one
+cutoff shared by all classes. The cutoff is fitted on the pooled class
+indicators. The predictor picks the highest-probability eligible class, or
+the highest-probability class if none are eligible. Both rules give the
+same class with a shared cutoff. The reported micro F1, precision and
+recall therefore equal the fraction of correctly classified observations,
+weighted by ``sample_weight`` when supplied.
+
 .. code-block:: python
 
-   # Pool all samples together (treats all samples equally)
-   # Note: Only supported for some metrics
-   try:
-       thresholds = optimize_thresholds(
-           y_true, y_prob,
-           metric='f1',
-           average='micro'
-       )
-   except ValueError as e:
-       print(f"Micro averaging not supported: {e}")
+   result = optimize_thresholds(y_true, y_prob, metric="f1", average="micro")
+   predictions = result.predict(y_prob)
+   assert np.isclose(result.score, np.mean(predictions == y_true))
 
 Weighted Averaging
 ~~~~~~~~~~~~~~~~~~
