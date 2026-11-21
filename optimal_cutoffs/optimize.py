@@ -144,16 +144,18 @@ def sort_scan_kernel(
 
 
 @jit(nopython=True, fastmath=True, cache=True)
-def compute_macro_f1(tp: np.ndarray, fp: np.ndarray, support: np.ndarray) -> float:
-    """Compute macro F1 from per-class TP/FP and support (FN = support - TP)."""
+def _average_f1(
+    tp: np.ndarray, fp: np.ndarray, support: np.ndarray, class_weights: np.ndarray
+) -> float:
+    """Average per-class F1 using normalized weights (FN = support - TP)."""
     f1_sum = 0.0
     k = tp.shape[0]
     for c in range(k):
         fn = support[c] - tp[c]
         denom = 2.0 * tp[c] + fp[c] + fn
         if denom > 0.0:
-            f1_sum += 2.0 * tp[c] / denom
-    return f1_sum / float(k)
+            f1_sum += class_weights[c] * (2.0 * tp[c] / denom)
+    return f1_sum
 
 
 @jit(nopython=True, fastmath=True, cache=True)
@@ -163,8 +165,9 @@ def coordinate_ascent_kernel(
     weights: np.ndarray,
     max_iter: int,
     tol: float,
+    support_weighted: bool = False,
 ) -> tuple[np.ndarray, float, np.ndarray]:
-    """Numba coordinate ascent for multiclass macro-F1 with sample weights.
+    """Coordinate ascent for multiclass macro or support-weighted F1.
 
     Predict via argmax over (p - tau). We iteratively adjust one class's
     threshold at a time by scanning the implied breakpoints for that class.
@@ -179,6 +182,8 @@ def coordinate_ascent_kernel(
     support = np.zeros(k, dtype=np.float64)
     for i in range(n):
         support[y_true[i]] += weights[i]
+
+    class_weights = support / support.sum() if support_weighted else np.full(k, 1.0 / k)
 
     # Initialize by assigning every sample to its current best class
     tp = np.zeros(k, dtype=np.float64)
@@ -197,7 +202,7 @@ def coordinate_ascent_kernel(
         else:
             fp[pred] += w
 
-    best_score = compute_macro_f1(tp, fp, support)
+    best_score = _average_f1(tp, fp, support, class_weights)
     no_improve_rounds = 0
 
     for it in range(max_iter):
@@ -234,7 +239,7 @@ def coordinate_ascent_kernel(
                     fp_cand[pred] += w
 
             # Above the highest breakpoint everyone takes their alternative.
-            current_best = compute_macro_f1(tp_cand, fp_cand, support)
+            current_best = _average_f1(tp_cand, fp_cand, support, class_weights)
             new_threshold = breakpoints[order[0]] + 1.0
             start = 0
             while start < n:
@@ -266,7 +271,7 @@ def coordinate_ascent_kernel(
 
                     if at_equality and (moved == 0 or moved == end - start):
                         continue
-                    score = compute_macro_f1(tp_cand, fp_cand, support)
+                    score = _average_f1(tp_cand, fp_cand, support, class_weights)
                     if score > current_best:
                         current_best = score
                         if at_equality:
@@ -298,7 +303,7 @@ def coordinate_ascent_kernel(
                     else:
                         fp[pred] += w
 
-                attained = compute_macro_f1(tp, fp, support)
+                attained = _average_f1(tp, fp, support, class_weights)
                 if attained > best_score + tol:
                     best_score = attained
                     improved_any = True

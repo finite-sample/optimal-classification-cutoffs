@@ -30,7 +30,7 @@ def multiclass_confusion_matrices_at_thresholds(
     return cms
 
 
-@pytest.mark.parametrize("method", ["auto", "micro"])
+@pytest.mark.parametrize("method", ["auto", "micro", "sort_scan", "minimize"])
 @pytest.mark.parametrize("comparison", [">", ">="])
 @pytest.mark.parametrize("metric", ["f1", "precision", "recall", "accuracy"])
 def test_single_label_micro_scores_its_returned_decisions(method, comparison, metric):
@@ -62,7 +62,7 @@ def test_single_label_micro_scores_its_returned_decisions(method, comparison, me
             method=method,
             sample_weight=weights,
         )
-        assert fit.method == "micro"
+        assert fit.method == ("micro" if method == "auto" else method)
         assert fit.average.value == "micro"
         assert np.unique(fit.thresholds).size == 1
         np.testing.assert_array_equal(fit.predict(p), expected)
@@ -439,3 +439,42 @@ class TestPerformanceImprovements:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize("weights", [None, [3.0, 1.0, 1.0, 2.0, 1.0]])
+def test_support_weighted_f1_prefers_an_attainable_weighted_improvement(weights):
+    from sklearn.metrics import f1_score
+
+    labels = np.array([0, 2, 2, 1, 2])
+    probabilities = np.array([[0.5, 0.25, 0.25]] * 3 + [[0.25, 0.25, 0.5]] * 2)
+    fit = optimize_thresholds(
+        labels, probabilities, average="weighted", sample_weight=weights
+    )
+    pred = fit.predict(probabilities)
+    attained = f1_score(labels, pred, average="weighted", sample_weight=weights)
+    assert fit.score == pytest.approx(attained)
+    all_two = np.full(5, 2)
+    assert attained >= f1_score(
+        labels, all_two, average="weighted", sample_weight=weights
+    )
+
+
+@pytest.mark.parametrize("method", ["independent", "sort_scan", "minimize"])
+def test_independent_scores_use_weighted_class_support(method):
+    from sklearn.metrics import f1_score
+
+    labels = np.array([0, 2, 1, 1])
+    probabilities = np.array(
+        [[0.5, 0.25, 0.25], [0.5, 0.25, 0.25], [0.25, 0.25, 0.5], [0.5, 0.25, 0.25]]
+    )
+    weights = [2.0, 1.0, 1.0, 1.0]
+    fit = optimize_thresholds(
+        labels, probabilities, average="weighted", method=method, sample_weight=weights
+    )
+    expected = f1_score(
+        np.eye(3)[labels],
+        fit.predict(probabilities),
+        average="weighted",
+        sample_weight=weights,
+    )
+    assert fit.score == pytest.approx(expected)

@@ -108,6 +108,12 @@ weighted by ``sample_weight`` when supplied.
 Weighted Averaging
 ~~~~~~~~~~~~~~~~~~
 
+The macro F1 solver gives each class equal weight. With ``average="weighted"``,
+each class contributes in proportion to the total weight of its true observations.
+This applies to the objective during the margin search and to the reported score.
+For independent one-vs-rest fits, the class-specific cutoffs can still be fitted
+separately because the support weights are fixed.
+
 .. code-block:: python
 
    # Weight by class frequency

@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from .core import OptimizationResult, Task
+from .core import Average, OptimizationResult, Task
 from .validation import validate_multiclass_classification
 
 if TYPE_CHECKING:
@@ -30,6 +30,7 @@ def optimize_ovr_independent(
     y_score: ArrayLike,
     *,
     metric: str = "f1",
+    average: str = "macro",
     method: str = "auto",
     sample_weight: ArrayLike | None = None,
     comparison: str = ">",
@@ -48,6 +49,7 @@ def optimize_ovr_independent(
         y_true: True class labels in {0, 1, ..., K-1}. Shape: (n_samples,).
         y_score: Predicted probabilities for each class. Shape: (n_samples, n_classes).
         metric: Metric to optimize per class. Defaults to "f1".
+        average: Use "macro" for equal class weights or "weighted" for class support.
         method: Binary optimization method. Defaults to "auto".
         sample_weight: Sample weights. Shape: (n_samples,). Optional.
         comparison: Comparison operator. Defaults to ">".
@@ -56,6 +58,9 @@ def optimize_ovr_independent(
     Returns:
         Result with per-class thresholds optimized independently
 
+    Raises:
+        ValueError: If the averaging strategy is unsupported.
+
     Examples:
         >>> y_true = [0, 1, 2, 0, 1]
         >>> y_score = [[0.7, 0.2, 0.1], [0.1, 0.8, 0.1], [0.1, 0.1, 0.8], ...]
@@ -63,6 +68,9 @@ def optimize_ovr_independent(
         >>> predictions = result.predict(y_score)  # Can predict multiple classes
     """
     from .binary import optimize_metric_binary
+
+    if average not in {"macro", "weighted"}:
+        raise ValueError("Use macro or weighted averaging for this multiclass method")
 
     # Validate inputs
     y_true, y_score, sample_weight = validate_multiclass_classification(
@@ -94,8 +102,12 @@ def optimize_ovr_independent(
         optimal_thresholds[k] = result_k.thresholds[0]
         optimal_scores[k] = result_k.scores[0]
 
-    # Macro average score
-    macro_score = np.mean(optimal_scores)
+    class_weights = (
+        np.bincount(y_true, weights=sample_weight, minlength=n_classes)
+        if average == "weighted"
+        else None
+    )
+    average_score = np.average(optimal_scores, weights=class_weights)
 
     from .validation import apply_threshold
 
@@ -109,10 +121,11 @@ def optimize_ovr_independent(
 
     return OptimizationResult(
         thresholds=optimal_thresholds,
-        scores=np.array([macro_score], dtype=np.float64),
+        scores=np.array([average_score], dtype=np.float64),
         predict=predict_multiclass_independent,
         task=Task.MULTICLASS,
-        metric=f"macro_{metric}_ovr_independent",
+        average=Average(average),
+        metric=f"{average}_{metric}_ovr_independent",
         n_classes=n_classes,
     )
 
@@ -122,6 +135,7 @@ def optimize_ovr_margin(
     y_score: ArrayLike,
     *,
     metric: str = "f1",
+    average: str = "macro",
     max_iter: int = 30,
     sample_weight: ArrayLike | None = None,
     comparison: str = ">",
@@ -140,6 +154,7 @@ def optimize_ovr_margin(
         y_true: True class labels in {0, 1, ..., K-1}. Shape: (n_samples,).
         y_score: Predicted probabilities for each class. Shape: (n_samples, n_classes).
         metric: Metric to optimize (currently supports "f1" only). Defaults to "f1".
+        average: Use "macro" for equal class weights or "weighted" for class support.
         max_iter: Maximum coordinate ascent iterations. Defaults to 30.
         sample_weight: Sample weights. Shape: (n_samples,). Optional.
         comparison: Comparison operator (only ">" supported for margin rule). Defaults
@@ -150,6 +165,7 @@ def optimize_ovr_margin(
         Result with per-class thresholds optimized via coordinate ascent
 
     Raises:
+        ValueError: If the averaging strategy is unsupported.
         NotImplementedError: If `metric` is not "f1" or `comparison` is not ">".
 
     Examples:
@@ -163,6 +179,9 @@ def optimize_ovr_margin(
         In this case, optimal thresholds are: τ_j = c_j/(c_j + r_j) (closed form!)
     """
     from .optimize import coordinate_ascent_kernel
+
+    if average not in {"macro", "weighted"}:
+        raise ValueError("Use macro or weighted averaging for this multiclass method")
 
     # Validate inputs
     y_true, y_score, sample_weight = validate_multiclass_classification(
@@ -192,6 +211,7 @@ def optimize_ovr_margin(
         weights,
         max_iter=max_iter,
         tol=tolerance,
+        support_weighted=average == "weighted",
     )
 
     from .validation import make_margin_predictor
@@ -201,7 +221,8 @@ def optimize_ovr_margin(
         scores=np.array([best_score]),
         predict=make_margin_predictor(thresholds),
         task=Task.MULTICLASS,
-        metric=f"macro_{metric}_margin_rule",
+        average=Average(average),
+        metric=f"{average}_{metric}_margin_rule",
         n_classes=n_classes,
     )
 
@@ -289,6 +310,7 @@ def optimize_micro_multiclass(
     return OptimizationResult(
         thresholds=thresholds,
         scores=np.atleast_1d(score),
+        average=Average.MICRO,
         predict=predict,
         task=Task.MULTICLASS,
         metric=f"micro_{metric}",
@@ -319,7 +341,8 @@ def optimize_multiclass(
         y_true: True class labels in {0, 1, ..., K-1}. Shape: (n_samples,).
         y_score: Predicted probabilities for each class. Shape: (n_samples, n_classes).
         metric: Metric to optimize. Defaults to "f1".
-        average: Averaging strategy. One of {"macro", "micro"}. Defaults to "macro".
+        average: Equal class weights ("macro"), support weights ("weighted"),
+            or pooled counts ("micro"). Defaults to "macro".
         method: Optimization method, defaults to "auto":
             - "auto": For macro, uses coord_ascent (margin rule)
             - "coord_ascent": Margin rule with coordinate ascent
@@ -355,7 +378,7 @@ def optimize_multiclass(
                 comparison=comparison,
                 tolerance=tolerance,
             )
-        case "macro":
+        case "macro" | "weighted":
             match method:
                 case "auto":
                     # Auto method: choose best method based on metric and comparison
@@ -367,6 +390,7 @@ def optimize_multiclass(
                             y_true,
                             y_score,
                             metric=metric,
+                            average=average,
                             max_iter=30,
                             sample_weight=sample_weight,
                             comparison=comparison,
@@ -378,6 +402,7 @@ def optimize_multiclass(
                         y_true,
                         y_score,
                         metric=metric,
+                        average=average,
                         method="auto",
                         sample_weight=sample_weight,
                         comparison=comparison,
@@ -388,6 +413,7 @@ def optimize_multiclass(
                         y_true,
                         y_score,
                         metric=metric,
+                        average=average,
                         max_iter=30,
                         sample_weight=sample_weight,
                         comparison=comparison,
@@ -401,6 +427,7 @@ def optimize_multiclass(
                         y_true,
                         y_score,
                         metric=metric,
+                        average=average,
                         method="auto",
                         sample_weight=sample_weight,
                         comparison=comparison,
@@ -409,7 +436,9 @@ def optimize_multiclass(
                 case _:
                     raise ValueError(f"Unknown method for macro averaging: {method}")
         case _:
-            raise ValueError(f"Unknown average: {average}. Use 'macro' or 'micro'")
+            raise ValueError(
+                f"Unknown average: {average}. Use 'macro', 'weighted', or 'micro'"
+            )
 
 
 __all__ = [
