@@ -207,9 +207,8 @@ def validate_threshold(
     Args:
         threshold: Threshold(s) to validate
         n_classes: For multiclass, expected number of thresholds
-        allow_epsilon_outside: If True, allow values slightly outside [0,1] by
-            floating-point epsilon.
-            Used internally for thresholds that are nudged by nextafter().
+        allow_epsilon_outside: Accept the adjacent float64 values just below
+            zero and just above one that represent endpoint cuts.
 
     Returns:
         Validated threshold(s)
@@ -224,9 +223,9 @@ def validate_threshold(
 
     # Check bounds
     if allow_epsilon_outside:
-        # Lenient check: allow tiny epsilon outside [0,1] for internal use
-        eps = np.finfo(np.float64).eps * 100
-        if np.any(arr < -eps) or np.any(arr > 1 + eps):
+        if np.any(arr < np.nextafter(0.0, -np.inf)) or np.any(
+            arr > np.nextafter(1.0, np.inf)
+        ):
             raise ValueError(
                 f"Thresholds far outside valid range: "
                 f"[{arr.min():.6f}, {arr.max():.6f}]"
@@ -285,6 +284,9 @@ def apply_threshold(
     Returns:
         Binary predictions (0 or 1) as int32
     """
+    # Fitting compares float64 scores. With a float32 array, NumPy can
+    # otherwise round a Python scalar threshold onto an adjacent score.
+    values = np.asarray(values, dtype=np.float64)
     if comparison == ">=":
         return (values >= threshold).astype(np.int32)
     return (values > threshold).astype(np.int32)
@@ -741,7 +743,7 @@ def _validate_threshold_inputs(
 
     # Validate threshold
     if require_proba:
-        validate_threshold(threshold, allow_epsilon_outside=False)
+        validate_threshold(threshold, allow_epsilon_outside=True)
     else:
         # For scores, just check it's a finite number
         if not np.isfinite(threshold):

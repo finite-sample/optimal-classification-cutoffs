@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Binary threshold selection now finds the best attainable score when predictions tie. Previously, rearranging equally scored observations could change the reported optimum.
+- Predictions preserve the fitted cutoff between adjacent float16 or float32 scores. Binary metric functions accept the adjacent floating-point cutoffs that the optimizer returns to classify every score or none at the probability boundaries.
 
 ## [3.0.0] - 2026-10-14
 

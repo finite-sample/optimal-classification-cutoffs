@@ -387,7 +387,7 @@ def confusion_matrix_at_threshold(
 
     # Validate threshold
     if require_proba:
-        validate_threshold(threshold, allow_epsilon_outside=False)
+        validate_threshold(threshold, allow_epsilon_outside=True)
 
     _validate_comparison_operator(comparison)
 
@@ -839,7 +839,7 @@ def multiclass_confusion_matrices_at_thresholds(
         )
 
     if require_proba:
-        validate_threshold(thresholds, n_classes)
+        validate_threshold(thresholds, n_classes, allow_epsilon_outside=True)
 
     confusion_matrices = []
 

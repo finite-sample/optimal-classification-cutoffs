@@ -51,13 +51,58 @@ class TestTiedProbabilityHandling:
             assert result.score == pytest.approx(best)
             assert f1(result.predict(scores).astype(bool)) == pytest.approx(best)
 
+    @pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64])
+    @pytest.mark.parametrize("odd_first", [False, True])
+    @pytest.mark.parametrize("method", ["auto", "sort_scan"])
     @pytest.mark.parametrize("comparison", [">", ">="])
-    def test_adjacent_representable_scores_are_separable(self, comparison):
-        scores = np.array([0.5, np.nextafter(0.5, np.inf)])
+    def test_adjacent_representable_scores_are_separable(
+        self, dtype, odd_first, method, comparison
+    ):
+        low = dtype(0.5)
+        if odd_first:
+            low = np.nextafter(low, dtype(1.0))
+        scores = np.array([low, np.nextafter(low, dtype(1.0))])
         labels = np.array([0, 1])
-        result = optimize_thresholds(labels, scores, comparison=comparison)
+        result = optimize_thresholds(
+            labels, scores, comparison=comparison, method=method
+        )
         np.testing.assert_array_equal(result.predict(scores), labels)
         assert result.score == 1.0
+
+    @pytest.mark.parametrize(
+        ("scores", "labels", "comparison", "boundary", "direction"),
+        [
+            ([0.0, 0.0], [1, 1], ">", 0.0, -np.inf),
+            ([1.0, 1.0], [0, 0], ">=", 1.0, np.inf),
+        ],
+    )
+    def test_returned_endpoint_threshold_can_be_rescored(
+        self, scores, labels, comparison, boundary, direction
+    ):
+        from optimal_cutoffs.metrics import compute_metric_at_threshold
+
+        result = optimize_thresholds(
+            labels, scores, metric="accuracy", comparison=comparison
+        )
+        assert result.threshold == np.nextafter(boundary, direction)
+        assert (
+            compute_metric_at_threshold(
+                labels, scores, result.threshold, "accuracy", comparison=comparison
+            )
+            == result.score
+            == 1.0
+        )
+        np.testing.assert_array_equal(
+            result.predict(np.array(scores, dtype=np.float32)), labels
+        )
+        with pytest.raises(ValueError, match="outside"):
+            compute_metric_at_threshold(
+                labels,
+                scores,
+                np.nextafter(result.threshold, direction),
+                "accuracy",
+                comparison=comparison,
+            )
 
     def test_all_identical_probabilities(self):
         """Test optimization when all probabilities are identical."""
