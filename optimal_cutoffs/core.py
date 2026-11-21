@@ -151,7 +151,7 @@ def infer_task_with_explanation(
 
 
 def select_method_with_explanation(
-    task: Task, metric: str, n_samples: int
+    task: Task, metric: str, n_samples: int, *, average: Average = Average.AUTO
 ) -> tuple[str, list[str]]:
     """Select optimization method with explanation.
 
@@ -159,6 +159,7 @@ def select_method_with_explanation(
         task: Classification task type
         metric: Metric to optimize
         n_samples: Number of samples (may influence method selection)
+        average: Requested empirical averaging strategy.
 
     Returns:
         Selected method name
@@ -184,6 +185,8 @@ def select_method_with_explanation(
             return "minimize", notes
 
         case Task.MULTICLASS:
+            if average == Average.MICRO:
+                return "micro", ["Using a shared cutoff for micro averaging"]
             if metric == "f1":
                 notes.append("Using coordinate ascent for coupled multiclass F1")
                 return "coord_ascent", notes
