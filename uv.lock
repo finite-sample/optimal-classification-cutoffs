@@ -1291,7 +1291,7 @@ wheels = [
 
 [[package]]
 name = "optimal-classification-cutoffs"
-version = "3.0.0"
+version = "3.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },

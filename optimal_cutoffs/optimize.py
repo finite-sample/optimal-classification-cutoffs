@@ -308,6 +308,13 @@ def coordinate_ascent_kernel(
 # ============================================================================
 
 
+def _probability_cut(threshold: float) -> float:
+    """Use the adjacent float64 cut for thresholds outside the probability range."""
+    return float(
+        np.clip(threshold, np.nextafter(0.0, -np.inf), np.nextafter(1.0, np.inf))
+    )
+
+
 def optimize_sort_scan(
     labels: np.ndarray,
     scores: np.ndarray,
@@ -330,6 +337,7 @@ def optimize_sort_scan(
         # _generic_sort_scan can handle None weights, but pass the array for consistency
         threshold, score = _generic_sort_scan(labels, scores, metric, weights, operator)
 
+    threshold = _probability_cut(threshold)
     from .validation import make_binary_predictor
 
     return OptimizationResult(
@@ -415,7 +423,7 @@ def optimize_scipy(
             objective, bounds=bounds, method=method, options={"xatol": tol}
         )
         # scipy's OptimizeResult is typed as a bare object in its stubs.
-        optimal_threshold = float(result.x)  # pyright: ignore[reportAttributeAccessIssue]
+        optimal_threshold = _probability_cut(result.x)  # pyright: ignore[reportAttributeAccessIssue]
         optimal_score = -float(result.fun)  # pyright: ignore[reportAttributeAccessIssue]
     except Exception:
         logger.warning("Scipy optimization failed, falling back to sort_scan")
@@ -481,6 +489,7 @@ def optimize_gradient(
         threshold += learning_rate * grad
         threshold = float(np.clip(threshold, lo, hi))
 
+    threshold = _probability_cut(threshold)
     final_score = evaluate_metric(threshold)
 
     from .validation import make_binary_predictor

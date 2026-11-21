@@ -120,30 +120,23 @@ class TestConcurrentStressTesting:
         n_seeds = 100
         n_samples = 1000
 
-        thresholds = []
-        scores = []
+        from sklearn.metrics import precision_recall_curve
 
         for seed in range(n_seeds):
             y_true, pred_prob = generate_binary_data(n_samples, random_state=seed)
-
             result = optimize_thresholds(y_true, pred_prob, method="sort_scan")
-            threshold = result.threshold
-            score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
-            assert_valid_threshold(threshold)
-            assert_valid_metric_score(score, "f1")
-
-            thresholds.append(threshold)
-            scores.append(score)
-
-        # Analyze distribution of results
-        threshold_std = np.std(thresholds)
-        score_std = np.std(scores)
-
-        # Results should vary (different data) but not be extremely variable
-        assert 0.01 < threshold_std < 0.5, (
-            f"Threshold std {threshold_std:.4f} unexpected"
-        )
-        assert 0.01 < score_std < 0.3, f"Score std {score_std:.4f} unexpected"
+            score = compute_metric_at_threshold(
+                y_true, pred_prob, result.threshold, "f1"
+            )
+            precision, recall, _ = precision_recall_curve(y_true, pred_prob)
+            total = precision + recall
+            f1 = np.divide(
+                2 * precision * recall,
+                total,
+                out=np.zeros_like(total),
+                where=total != 0,
+            )
+            assert score == pytest.approx(max(f1))
 
 
 class TestResourceExhaustionStress:

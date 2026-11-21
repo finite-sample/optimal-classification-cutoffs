@@ -5,10 +5,12 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
+from sklearn.metrics import f1_score
 
 from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics_core import (
     compute_metric_at_threshold,
+    compute_multiclass_metrics_from_labels,
     confusion_matrix_at_threshold,
     multiclass_metric_ovr,
 )
@@ -81,106 +83,29 @@ class TestCoreInvariants:
         """Verify O(n log n) piecewise solution matches naive brute force."""
         labels, probabilities = data
 
-        # Skip degenerate cases
-        if len(np.unique(labels)) < 2:
-            return
-        if len(np.unique(probabilities)) <= 1:
-            return  # Skip when all probabilities identical
+        # Strict cutoffs at each observed score and just below the minimum
+        # cover every distinct prediction, including tied and constant inputs.
+        candidates = [
+            np.nextafter(probabilities.min(), -np.inf),
+            *np.unique(probabilities),
+        ]
+        best = dict.fromkeys(["f1", "accuracy", "precision", "recall"], 0.0)
+        for threshold in candidates:
+            pred = probabilities > threshold
+            tp = np.count_nonzero(pred & (labels == 1))
+            denom = pred.sum() + labels.sum()
+            values = {
+                "accuracy": np.mean(pred == labels),
+                "f1": 2 * tp / denom if denom else 0.0,
+                "precision": tp / pred.sum() if pred.any() else 0.0,
+                "recall": tp / labels.sum() if labels.any() else 0.0,
+            }
+            for metric, value in values.items():
+                best[metric] = max(best[metric], value)
 
-        def naive_brute_force(true_labs, pred_prob, metric):
-            """Naive brute force that tests same candidates as piecewise algorithm."""
-            y_true = np.asarray(true_labs)
-            p = np.asarray(pred_prob)
-            n = len(p)
-
-            # Sort probabilities in descending order (same as piecewise algorithm)
-            sorted_idx = np.argsort(-p)
-            p_sorted = p[sorted_idx]
-
-            best_score = -np.inf
-            best_threshold = 0.5
-
-            # Test all possible cut positions (same as piecewise algorithm)
-            for k in range(n):
-                # Compute threshold midpoint for cut position k
-                if k == n - 1:
-                    # Predict all as positive
-                    threshold = max(0.0, float(np.nextafter(p_sorted[-1], -np.inf)))
-                else:
-                    included_prob = float(p_sorted[k])
-                    excluded_prob = float(p_sorted[k + 1])
-
-                    if included_prob > excluded_prob:
-                        threshold = 0.5 * (included_prob + excluded_prob)
-                    else:
-                        # Tied probabilities - use slight nudge
-                        threshold = float(np.nextafter(excluded_prob, np.inf))
-
-                # Clamp to [0, 1]
-                threshold = max(0.0, min(1.0, threshold))
-
-                try:
-                    score = compute_metric_at_threshold(
-                        y_true, pred_prob, threshold, metric
-                    )
-                    if score > best_score:
-                        best_score = score
-                        best_threshold = threshold
-                except (ValueError, ZeroDivisionError):
-                    # Skip invalid thresholds
-                    continue
-
-            # Also test a few edge cases
-            for edge_threshold in [0.001, 0.999]:
-                try:
-                    score = compute_metric_at_threshold(
-                        y_true, p, edge_threshold, metric
-                    )
-                    if score > best_score:
-                        best_score = score
-                        best_threshold = edge_threshold
-                except (ValueError, ZeroDivisionError):
-                    continue
-
-            return float(best_threshold)
-
-        # Test on multiple metrics
-        for metric in ["f1", "accuracy", "precision", "recall"]:
-            # Use piecewise optimization
-            piecewise_result = optimize_thresholds(labels, probabilities, metric=metric)
-            piecewise_threshold = piecewise_result.threshold
-
-            # Use naive brute force
-            naive_threshold = naive_brute_force(labels, probabilities, metric)
-
-            # Compute scores for both thresholds
-            piecewise_score = compute_metric_at_threshold(
-                labels, probabilities, piecewise_threshold, metric
-            )
-            naive_score = compute_metric_at_threshold(
-                labels, probabilities, naive_threshold, metric
-            )
-
-            # Piecewise should generally be at least as good as naive
-            # However, edge cases with identical probabilities may have implementation
-            # differences
-            tolerance = 1e-10
-            unique_probs = np.unique(probabilities)
-            has_ties = len(unique_probs) < len(
-                probabilities
-            )  # Check for tied probabilities
-            if (
-                len(unique_probs) <= 3
-                or 0.0 in probabilities
-                or 1.0 in probabilities
-                or has_ties
-            ):
-                tolerance = 0.2  # More lenient for edge cases with boundary/tied values
-
-            assert piecewise_score >= naive_score - tolerance, (
-                f"Piecewise optimization worse than naive for {metric}: "
-                f"{piecewise_score} vs {naive_score} (tolerance={tolerance})"
-            )
+        for metric, value in best.items():
+            result = optimize_thresholds(labels, probabilities, metric=metric)
+            assert result.score == pytest.approx(value, abs=1e-12)
 
     @given(
         data=matched_labels_and_probabilities(min_size=10, max_size=30),
@@ -219,8 +144,10 @@ class TestCoreInvariants:
         shifted_down = probabilities - epsilon
 
         # Get new optimal thresholds
-        threshold_up = optimize_thresholds(labels, shifted_up, metric="f1")
-        threshold_down = optimize_thresholds(labels, shifted_down, metric="f1")
+        threshold_up = optimize_thresholds(labels, shifted_up, metric="f1").threshold
+        threshold_down = optimize_thresholds(
+            labels, shifted_down, metric="f1"
+        ).threshold
 
         # For cases without extensive ties, threshold should shift approximately by
         # epsilon
@@ -320,14 +247,16 @@ class TestCoreInvariants:
             return
 
         # Get thresholds with both comparison operators
-        threshold_gt = optimize_thresholds(labels, probabilities, "f1", comparison=">")
+        threshold_gt = optimize_thresholds(
+            labels, probabilities, metric="f1", comparison=">"
+        ).threshold
         threshold_gte = optimize_thresholds(
-            labels, probabilities, "f1", comparison=">="
-        )
+            labels, probabilities, metric="f1", comparison=">="
+        ).threshold
 
         # Both should be valid thresholds
-        assert 0 <= threshold_gt <= 1
-        assert 0 <= threshold_gte <= 1
+        assert np.nextafter(0.0, -np.inf) <= threshold_gt <= np.nextafter(1.0, np.inf)
+        assert np.nextafter(0.0, -np.inf) <= threshold_gte <= np.nextafter(1.0, np.inf)
 
         # Get confusion matrices for both
         cm_gt = confusion_matrix_at_threshold(
@@ -356,74 +285,13 @@ class TestStatisticalProperties:
         if len(unique_labels) < 2 or len(labels) < 10:
             return
 
-        # Check if original separation is already very good
-        original_result = optimize_thresholds(labels, probabilities, metric="f1")
-        original_f1 = compute_metric_at_threshold(
-            labels, probabilities, original_result.threshold, "f1"
-        )
-
-        # If original F1 is already very high (>=0.9), skip the test
-        # as there's little room for improvement and "perfect" separation may not
-        # actually be better
-        if original_f1 >= 0.9:
-            return
-
-        # Check if the original probabilities are already well-separated
-        # If the correlation between labels and probabilities is already very high, skip
-        if len(labels) > 3:  # Need enough samples for correlation
-            # Handle case where variance is zero (all values identical)
-            if np.std(labels) > 1e-10 and np.std(probabilities) > 1e-10:
-                correlation = abs(np.corrcoef(labels, -probabilities)[0, 1])
-                if correlation >= 0.9:  # Already highly correlated
-                    return
-            else:
-                # If either has zero variance, skip (no meaningful correlation)
-                return
-
-        # Create perfect separation version
-        # Sort by original probabilities, then assign probabilities based on labels
-        sort_idx = np.argsort(probabilities)
-        sorted_labels = labels[sort_idx]
-
-        # Create perfectly separated probabilities
-        perfect_probs = np.zeros_like(probabilities)
-        perfect_probs[sorted_labels == 0] = 0.25  # All negatives get low prob
-        perfect_probs[sorted_labels == 1] = 0.75  # All positives get high prob
-
-        # Add small noise to avoid ties
-        perfect_probs += np.random.normal(0, 0.01, size=len(perfect_probs))
-        perfect_probs = np.clip(perfect_probs, 0, 1)
-
-        # Compare metrics
+        perfect_probs = np.where(labels == 1, 0.75, 0.25)
         for metric in ["accuracy", "f1"]:
-            perfect_result = optimize_thresholds(labels, perfect_probs, metric)
-
-            original_score = compute_metric_at_threshold(
-                labels, probabilities, original_result.threshold, metric
-            )
-            perfect_score = compute_metric_at_threshold(
-                labels, perfect_probs, perfect_result.threshold, metric
-            )
-
-            # Perfect separation should generally be better or at least reasonable
-            # However, with extreme class imbalance, perfect separation can sometimes
-            # perform worse than well-calibrated probabilities. We only fail if the
-            # performance is unreasonably bad.
-
-            # Skip the test if we have extreme class imbalance (< 10% or > 90% positive)
-            pos_ratio = np.mean(labels)
-            if pos_ratio < 0.1 or pos_ratio > 0.9:
-                # With extreme imbalance, perfect separation assumptions may not hold
-                return
-
-            if perfect_score < original_score - 0.5:
-                # Only fail if the difference is very substantial
-                pytest.fail(
-                    f"Perfect separation much worse than original for {metric}: "
-                    f"{perfect_score} vs {original_score} "
-                    f"(original_f1={original_f1:.3f}, "
-                    f"pos_ratio={pos_ratio:.3f})"
-                )
+            original = optimize_thresholds(labels, probabilities, metric=metric)
+            perfect = optimize_thresholds(labels, perfect_probs, metric=metric)
+            np.testing.assert_array_equal(perfect.predict(perfect_probs), labels)
+            assert perfect.score == 1.0
+            assert perfect.score >= original.score
 
     @given(matched_labels_and_probabilities(min_size=3, max_size=30))
     @settings(max_examples=30)
@@ -448,7 +316,7 @@ class TestStatisticalProperties:
 
     @given(
         data=matched_labels_and_probabilities(min_size=5, max_size=20),
-        method=st.sampled_from(["unique_scan", "minimize", "gradient"]),
+        method=st.sampled_from(["sort_scan", "minimize", "gradient"]),
     )
     @settings(max_examples=20)
     def test_optimization_method_consistency(self, data, method):
@@ -459,24 +327,11 @@ class TestStatisticalProperties:
         if len(np.unique(labels)) < 2:
             return
 
-        try:
-            result = optimize_thresholds(labels, probabilities, "f1", method=method)
-
-            # Threshold should be valid
-            threshold = result.threshold
-            assert 0 <= threshold <= 1
-
-            # Should produce a valid confusion matrix
-            tp, tn, fp, fn = confusion_matrix_at_threshold(
-                labels, probabilities, threshold
-            )
-            assert tp + tn + fp + fn == len(labels)
-
-        except Exception as e:
-            # Some methods might fail on edge cases, but should fail gracefully
-            assert isinstance(e, ValueError | RuntimeError), (
-                f"Unexpected error type for method {method}: {type(e)}"
-            )
+        result = optimize_thresholds(labels, probabilities, metric="f1", method=method)
+        threshold = result.threshold
+        assert np.nextafter(0.0, -np.inf) <= threshold <= np.nextafter(1.0, np.inf)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
+        assert tp + tn + fp + fn == len(labels)
 
 
 class TestNumericalStability:
@@ -497,7 +352,7 @@ class TestNumericalStability:
         # Should handle gracefully without numerical issues
         result = optimize_thresholds(labels, probabilities, metric="f1")
         threshold = result.threshold
-        assert 0 <= threshold <= 1
+        assert np.nextafter(0.0, -np.inf) <= threshold <= np.nextafter(1.0, np.inf)
 
         # Confusion matrix should be valid
         tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
@@ -521,7 +376,7 @@ class TestNumericalStability:
         # Should handle extreme values gracefully
         result = optimize_thresholds(labels, probabilities, metric="accuracy")
         threshold = result.threshold
-        assert 0 <= threshold <= 1
+        assert np.nextafter(0.0, -np.inf) <= threshold <= np.nextafter(1.0, np.inf)
 
         # Test confusion matrix
         tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
@@ -600,63 +455,36 @@ class TestMulticlassPropertyBased:
     @given(matched_multiclass_data(n_classes=3, min_size=12, max_size=30))
     @settings(max_examples=20)
     def test_multiclass_threshold_bounds(self, data):
-        """All multiclass thresholds must be in [0, 1] range."""
+        """Independent one-vs-rest fits produce a cutoff for each class."""
         labels, probabilities = data
+        result = optimize_thresholds(
+            labels, probabilities, metric="f1", method="independent"
+        )
 
-        # Ensure we have all classes represented
-        unique_labels = np.unique(labels)
-        if len(unique_labels) < 2:
-            return  # Skip degenerate cases
-
-        thresholds = optimize_thresholds(labels, probabilities, "f1", average="macro")
-
-        assert isinstance(thresholds, np.ndarray)
-        assert len(thresholds) == probabilities.shape[1]
-        assert np.all((thresholds >= 0) & (thresholds <= 1))
+        assert result.thresholds.shape == (probabilities.shape[1],)
+        assert np.all((result.thresholds >= 0) & (result.thresholds <= 1))
 
     @given(matched_multiclass_data(n_classes=3, min_size=15, max_size=25))
     @settings(max_examples=15)
     def test_multiclass_ovr_independence(self, data):
-        """One-vs-Rest thresholds should be independent across classes."""
+        """OvR cutoffs and predictions agree with separate binary fits."""
         labels, probabilities = data
-
-        # Skip if too few classes represented
-        unique_labels = np.unique(labels)
-        if len(unique_labels) < 3:
-            return
-
-        # Get thresholds using macro averaging (independent optimization)
-        thresholds = optimize_thresholds(labels, probabilities, "f1", average="macro")
-
-        # Manually compute per-class thresholds
-        manual_thresholds = []
-        for class_idx in range(probabilities.shape[1]):
-            if class_idx in unique_labels:
-                # One-vs-Rest binary problem
-                binary_labels = (labels == class_idx).astype(int)
-                binary_probs = probabilities[:, class_idx]
-
-                # Skip if this class has no positive examples
-                if np.sum(binary_labels) > 0 and np.sum(1 - binary_labels) > 0:
-                    binary_result = optimize_thresholds(
-                        binary_labels, binary_probs, "f1"
-                    )
-                    manual_thresholds.append(binary_result.threshold)
-                else:
-                    manual_thresholds.append(0.5)  # Default for degenerate case
-            else:
-                manual_thresholds.append(0.5)  # Default for missing class
-
-        manual_thresholds = np.array(manual_thresholds)
-
-        # Should be approximately equal (allowing for numerical differences)
-        for i, (auto, manual) in enumerate(
-            zip(thresholds, manual_thresholds, strict=False)
-        ):
-            if i in unique_labels and np.sum(labels == i) > 0:
-                assert abs(auto - manual) < 1e-6, (
-                    f"Class {i} threshold mismatch: auto={auto}, manual={manual}"
-                )
+        result = optimize_thresholds(
+            labels, probabilities, metric="f1", method="independent"
+        )
+        individual = [
+            optimize_thresholds(labels == k, probabilities[:, k], metric="f1")
+            for k in range(probabilities.shape[1])
+        ]
+        np.testing.assert_allclose(
+            result.thresholds, [fit.threshold for fit in individual]
+        )
+        np.testing.assert_array_equal(
+            result.predict(probabilities),
+            np.column_stack(
+                [fit.predict(probabilities[:, k]) for k, fit in enumerate(individual)]
+            ),
+        )
 
     @given(
         data=matched_multiclass_data(n_classes=3, min_size=12, max_size=20),
@@ -664,70 +492,31 @@ class TestMulticlassPropertyBased:
     )
     @settings(max_examples=15)
     def test_multiclass_averaging_consistency(self, data, average):
-        """Different averaging methods should produce consistent results."""
+        """Score single-label predictions with each requested F1 average."""
         labels, probabilities = data
-
-        # Skip degenerate cases
-        unique_labels = np.unique(labels)
-        if len(unique_labels) < 2:
-            return
-
-        try:
-            thresholds = optimize_thresholds(
-                labels, probabilities, "f1", average=average
-            )
-
-            # Should produce valid thresholds
-            if average in ["macro", "weighted"]:
-                # These return per-class thresholds
-                assert isinstance(thresholds, np.ndarray)
-                assert len(thresholds) == probabilities.shape[1]
-                assert np.all((thresholds >= 0) & (thresholds <= 1))
-            else:
-                # Micro might return different format
-                assert np.all(
-                    (np.asarray(thresholds) >= 0) & (np.asarray(thresholds) <= 1)
-                )
-
-            # Test that confusion matrices are valid
-            cms = multiclass_confusion_matrices_at_thresholds(
-                labels, probabilities, thresholds
-            )
-            assert len(cms) == probabilities.shape[1]
-
-            for tp, tn, fp, fn in cms:
-                assert tp >= 0
-                assert tn >= 0
-                assert fp >= 0
-                assert fn >= 0
-
-        except (ValueError, RuntimeError):
-            # Some averaging methods might fail on edge cases
-            pass
+        result = optimize_thresholds(
+            labels, probabilities, metric="f1", average=average
+        )
+        assert result.thresholds.shape == (probabilities.shape[1],)
+        predicted = result.predict(probabilities)
+        assert predicted.shape == labels.shape
+        expected = f1_score(labels, predicted, average=average, zero_division=0)
+        assert compute_multiclass_metrics_from_labels(
+            labels, predicted, metric="f1", average=average
+        ) == pytest.approx(expected)
 
     @given(matched_multiclass_data(n_classes=4, min_size=16, max_size=24))
     @settings(max_examples=10)
     def test_multiclass_determinism(self, data):
-        """Multiclass optimization should be deterministic."""
+        """Repeated fits produce the same thresholds, scores, and predictions."""
         labels, probabilities = data
-
-        # Skip degenerate cases
-        if len(np.unique(labels)) < 2:
-            return
-
-        # Run optimization multiple times
-        thresholds_list = []
-        for _ in range(3):
-            thresholds = optimize_thresholds(
-                labels, probabilities, "accuracy", average="macro"
-            )
-            thresholds_list.append(thresholds)
-
-        # All results should be identical
-        for i, thresholds in enumerate(thresholds_list[1:], 1):
-            assert np.allclose(thresholds_list[0], thresholds, atol=1e-12), (
-                f"Non-deterministic multiclass results: run 0 vs run {i}"
-            )
+        first = optimize_thresholds(labels, probabilities, metric="accuracy")
+        second = optimize_thresholds(labels, probabilities, metric="accuracy")
+        np.testing.assert_array_equal(first.thresholds, second.thresholds)
+        np.testing.assert_array_equal(first.scores, second.scores)
+        np.testing.assert_array_equal(
+            first.predict(probabilities), second.predict(probabilities)
+        )
 
     @given(
         data=matched_multiclass_data(n_classes=3, min_size=9, max_size=18),
@@ -735,77 +524,39 @@ class TestMulticlassPropertyBased:
     )
     @settings(max_examples=15)
     def test_multiclass_metric_bounds(self, data, metric):
-        """Multiclass metrics should be in expected ranges."""
+        """Check which one-vs-rest averages are defined for each metric."""
         labels, probabilities = data
-
-        # Skip degenerate cases
-        if len(np.unique(labels)) < 2:
-            return
-
-        try:
-            thresholds = optimize_thresholds(
-                labels, probabilities, metric=metric, average="macro"
-            )
-
-            # Get confusion matrices
-            cms = multiclass_confusion_matrices_at_thresholds(
-                labels, probabilities, thresholds
-            )
-
-            # Test macro averaging
-            score_macro = multiclass_metric_ovr(cms, metric, "macro")
-            assert 0 <= score_macro <= 1, f"Macro {metric} out of bounds: {score_macro}"
-
-            # Test micro averaging
-            score_micro = multiclass_metric_ovr(cms, metric, "micro")
-            assert 0 <= score_micro <= 1, f"Micro {metric} out of bounds: {score_micro}"
-
-            # Test weighted averaging
-            score_weighted = multiclass_metric_ovr(cms, metric, "weighted")
-            assert 0 <= score_weighted <= 1, (
-                f"Weighted {metric} out of bounds: {score_weighted}"
-            )
-
-        except (ValueError, ZeroDivisionError):
-            # Some metrics might fail on edge cases (e.g., no positives for precision)
-            pass
+        result = optimize_thresholds(
+            labels, probabilities, metric=metric, method="independent"
+        )
+        cms = multiclass_confusion_matrices_at_thresholds(
+            labels, probabilities, result.thresholds, comparison=">"
+        )
+        for average in ("macro", "weighted"):
+            assert 0 <= multiclass_metric_ovr(cms, metric, average) <= 1
+        if metric == "accuracy":
+            with pytest.raises(ValueError, match="exclusive single-label"):
+                multiclass_metric_ovr(cms, metric, "micro")
+        else:
+            assert 0 <= multiclass_metric_ovr(cms, metric, "micro") <= 1
 
     @given(matched_multiclass_data(n_classes=3, min_size=12, max_size=20))
     @settings(max_examples=10)
     def test_multiclass_comparison_operators(self, data):
-        """Test multiclass with different comparison operators."""
+        """Check the fitted comparison rule, including ties at each cutoff."""
         labels, probabilities = data
-
-        # Skip degenerate cases
-        if len(np.unique(labels)) < 2:
-            return
-
-        # Get thresholds with both comparison operators
-        thresholds_gt = optimize_thresholds(labels, probabilities, "f1", comparison=">")
-        thresholds_gte = optimize_thresholds(
-            labels, probabilities, "f1", comparison=">="
-        )
-
-        # Both should be valid
-        assert np.all((thresholds_gt >= 0) & (thresholds_gt <= 1))
-        assert np.all((thresholds_gte >= 0) & (thresholds_gte <= 1))
-
-        # Get confusion matrices with both
-        cms_gt = multiclass_confusion_matrices_at_thresholds(
-            labels, probabilities, thresholds_gt, comparison=">"
-        )
-        cms_gte = multiclass_confusion_matrices_at_thresholds(
-            labels, probabilities, thresholds_gte, comparison=">="
-        )
-
-        # Both should have valid confusion matrices
-        for cms in [cms_gt, cms_gte]:
-            assert len(cms) == probabilities.shape[1]
-            for tp, tn, fp, fn in cms:
-                assert tp >= 0
-                assert tn >= 0
-                assert fp >= 0
-                assert fn >= 0
+        for comparison, compare in ((">", np.greater), (">=", np.greater_equal)):
+            result = optimize_thresholds(
+                labels,
+                probabilities,
+                metric="f1",
+                method="independent",
+                comparison=comparison,
+            )
+            at_and_around = np.vstack([probabilities, result.thresholds])
+            np.testing.assert_array_equal(
+                result.predict(at_and_around), compare(at_and_around, result.thresholds)
+            )
 
 
 class TestMulticlassMathematicalProperties:
@@ -814,96 +565,48 @@ class TestMulticlassMathematicalProperties:
     @given(matched_multiclass_data(n_classes=3, min_size=15, max_size=25))
     @settings(max_examples=10)
     def test_multiclass_macro_micro_weighted_relationships(self, data):
-        """Test mathematical relationships between averaging methods."""
+        """Check equal class weights, support weights, and pooled counts."""
         labels, probabilities = data
-
-        # Skip degenerate cases
-        unique_labels = np.unique(labels)
-        if len(unique_labels) < 2:
-            return
-
-        try:
-            # Get thresholds (use macro for independent optimization)
-            thresholds = optimize_thresholds(
-                labels, probabilities, "f1", average="macro"
-            )
-
-            # Get confusion matrices
-            cms = multiclass_confusion_matrices_at_thresholds(
-                labels, probabilities, thresholds
-            )
-
-            # Compute different averages
-            score_macro = multiclass_metric_ovr(cms, "f1", "macro")
-            score_micro = multiclass_metric_ovr(cms, "f1", "micro")
-            score_weighted = multiclass_metric_ovr(cms, "f1", "weighted")
-            score_none = multiclass_metric_ovr(cms, "f1", "none")
-
-            # All should be valid
-            assert 0 <= score_macro <= 1
-            assert 0 <= score_micro <= 1
-            assert 0 <= score_weighted <= 1
-            assert isinstance(score_none, np.ndarray)
-            assert len(score_none) == probabilities.shape[1]
-            assert np.all((score_none >= 0) & (score_none <= 1))
-
-            # Macro average should equal mean of per-class scores
-            per_class_mean = np.mean(score_none)
-            assert abs(score_macro - per_class_mean) < 1e-10, (
-                f"Macro average {score_macro} != mean of per-class {per_class_mean}"
-            )
-
-        except (ValueError, ZeroDivisionError):
-            # Some edge cases might cause mathematical issues
-            pass
+        result = optimize_thresholds(
+            labels, probabilities, metric="f1", method="independent"
+        )
+        cms = multiclass_confusion_matrices_at_thresholds(
+            labels, probabilities, result.thresholds, comparison=">"
+        )
+        per_class = multiclass_metric_ovr(cms, "f1", "none")
+        np.testing.assert_allclose(result.score, np.mean(per_class))
+        assert multiclass_metric_ovr(cms, "f1", "macro") == pytest.approx(
+            np.mean(per_class)
+        )
+        assert multiclass_metric_ovr(cms, "f1", "weighted") == pytest.approx(
+            np.average(per_class, weights=np.bincount(labels))
+        )
+        tp, _, fp, fn = np.sum(cms, axis=0)
+        assert multiclass_metric_ovr(cms, "f1", "micro") == pytest.approx(
+            2 * tp / (2 * tp + fp + fn)
+        )
 
     @given(matched_multiclass_data(n_classes=3, min_size=12, max_size=20))
     @settings(max_examples=10)
     def test_multiclass_threshold_vector_properties(self, data):
-        """Test properties of the threshold vector."""
+        """Check optimal per-class precision against every distinct cutoff."""
         labels, probabilities = data
-
-        # Skip degenerate cases
-        if len(np.unique(labels)) < 2:
-            return
-
-        thresholds = optimize_thresholds(
-            labels, probabilities, "precision", average="macro"
+        result = optimize_thresholds(
+            labels, probabilities, metric="precision", method="independent"
         )
-
-        # Should be a proper vector
-        assert isinstance(thresholds, np.ndarray)
-        assert thresholds.ndim == 1
-        assert len(thresholds) == probabilities.shape[1]
-
-        # Each threshold should be reasonable for the class probability distribution
-        for class_idx, threshold in enumerate(thresholds):
-            class_probs = probabilities[:, class_idx]
-            unique_class_probs = np.unique(class_probs)
-
-            # Threshold should be close to one of the unique probability values OR their
-            # midpoints
-            # The algorithm can choose midpoints between adjacent unique values for
-            # optimal cuts
-            candidate_values = list(unique_class_probs)
-
-            # Add midpoints between adjacent unique values as valid candidates
-            sorted_probs = np.sort(unique_class_probs)
-            for i in range(len(sorted_probs) - 1):
-                midpoint = 0.5 * (sorted_probs[i] + sorted_probs[i + 1])
-                candidate_values.append(midpoint)
-
-            # Also add edge cases (slightly above max, slightly below min)
-            if len(sorted_probs) > 0:
-                candidate_values.append(min(1.0, sorted_probs[-1] + 0.01))  # Above max
-                candidate_values.append(max(0.0, sorted_probs[0] - 0.01))  # Below min
-
-            min_distance = min(abs(threshold - p) for p in candidate_values)
-            assert min_distance < 0.02, (
-                f"Class {class_idx} threshold {threshold} not close to any candidate "
-                f"value. "
-                f"Candidates: {sorted(set(candidate_values))}"
+        for k, selected in enumerate(result.predict(probabilities).T):
+            scores = probabilities[:, k]
+            positives = labels == k
+            counts = np.count_nonzero
+            achieved = counts(positives & selected.astype(bool)) / max(
+                1, counts(selected)
             )
+            candidates = np.r_[0.0, np.unique(scores)]
+            best = max(
+                counts(positives & (scores > cut)) / max(1, counts(scores > cut))
+                for cut in candidates
+            )
+            assert achieved == pytest.approx(best)
 
 
 class TestPerformanceProperties:
@@ -935,7 +638,7 @@ class TestPerformanceProperties:
         )
 
         # Result should be valid
-        assert 0 <= threshold <= 1
+        assert np.nextafter(0.0, -np.inf) <= threshold <= np.nextafter(1.0, np.inf)
 
     @given(matched_labels_and_probabilities(min_size=50, max_size=500))
     @settings(max_examples=10, deadline=15000)
@@ -951,7 +654,7 @@ class TestPerformanceProperties:
         # This is mainly tested by ensuring it completes without memory errors
         result = optimize_thresholds(labels, probabilities, metric="accuracy")
         threshold = result.threshold
-        assert 0 <= threshold <= 1
+        assert np.nextafter(0.0, -np.inf) <= threshold <= np.nextafter(1.0, np.inf)
 
         # Test that confusion matrix computation is also linear
         tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
@@ -969,63 +672,41 @@ class TestPerformanceProperties:
 
         import time
 
-        methods = ["unique_scan", "minimize", "gradient"]
-        times = {}
-        results = {}
-
-        for method in methods:
-            start_time = time.time()
-            try:
-                result = optimize_thresholds(labels, probabilities, "f1", method=method)
-                end_time = time.time()
-
-                times[method] = end_time - start_time
-                results[method] = result.threshold
-
-                # Should complete in reasonable time
-                assert times[method] < 5.0, (
-                    f"{method} took too long: {times[method]:.2f}s"
-                )
-
-                # Should produce valid result
-                threshold = result.threshold
-                assert 0 <= threshold <= 1
-
-            except Exception as e:
-                # Some methods might fail on edge cases
-                assert isinstance(e, ValueError | RuntimeError)
+        for method in ["sort_scan", "minimize", "gradient"]:
+            start = time.perf_counter()
+            result = optimize_thresholds(
+                labels, probabilities, metric="f1", method=method
+            )
+            elapsed = time.perf_counter() - start
+            assert elapsed < 5.0, f"{method} took {elapsed:.2f}s"
+            assert (
+                np.nextafter(0.0, -np.inf)
+                <= result.threshold
+                <= np.nextafter(1.0, np.inf)
+            )
 
     @given(matched_multiclass_data(n_classes=3, min_size=30, max_size=200))
     @settings(max_examples=5, deadline=15000)
     def test_multiclass_performance_scaling(self, data):
-        """Test that multiclass optimization scales reasonably."""
+        """The independent solver performs one binary fit of sample length per class."""
+        from unittest.mock import patch
+
+        from optimal_cutoffs.binary import optimize_metric_binary
+
         labels, probabilities = data
+        with patch(
+            "optimal_cutoffs.binary.optimize_metric_binary",
+            wraps=optimize_metric_binary,
+        ) as fit:
+            result = optimize_thresholds(
+                labels, probabilities, metric="f1", method="independent"
+            )
 
-        # Skip degenerate cases
-        if len(np.unique(labels)) < 2:
-            return
-
-        import time
-
-        start_time = time.time()
-        thresholds = optimize_thresholds(labels, probabilities, "f1", average="macro")
-        end_time = time.time()
-
-        # Should complete in reasonable time
-        # Multiclass is roughly O(k * n log n) where k is number of classes
-        n_classes = probabilities.shape[1]
-        n_samples = len(labels)
-        expected_max_time = 0.01 * n_classes * n_samples / 100
-
-        assert end_time - start_time < expected_max_time, (
-            f"Multiclass optimization too slow: {end_time - start_time:.4f}s for "
-            f"{n_samples} samples and {n_classes} classes"
-        )
-
-        # Results should be valid
-        assert isinstance(thresholds, np.ndarray)
-        assert len(thresholds) == n_classes
-        assert np.all((thresholds >= 0) & (thresholds <= 1))
+        assert fit.call_count == probabilities.shape[1]
+        for k, call in enumerate(fit.call_args_list):
+            np.testing.assert_array_equal(call.args[0], labels == k)
+            np.testing.assert_array_equal(call.args[1], probabilities[:, k])
+        assert result.thresholds.shape == (probabilities.shape[1],)
 
     @given(size=st.integers(10, 100), n_unique=st.integers(2, 20))
     @settings(max_examples=10)
@@ -1055,7 +736,7 @@ class TestPerformanceProperties:
         )
 
         threshold = result.threshold
-        assert 0 <= threshold <= 1
+        assert np.nextafter(0.0, -np.inf) <= threshold <= np.nextafter(1.0, np.inf)
 
     @given(matched_labels_and_probabilities(min_size=50, max_size=200))
     @settings(max_examples=10)
@@ -1077,22 +758,15 @@ class TestPerformanceProperties:
         ]
 
         for case_name, test_labels, test_probs in edge_cases:
-            start_time = time.time()
-            try:
-                result = optimize_thresholds(test_labels, test_probs, "accuracy")
-                end_time = time.time()
-
-                # Should complete in reasonable time
-                assert end_time - start_time < 1.0, (
-                    f"Edge case '{case_name}' too slow: {end_time - start_time:.4f}s"
-                )
-
-                threshold = result.threshold
-                assert 0 <= threshold <= 1
-
-            except ValueError:
-                # Some edge cases might be invalid, that's ok
-                pass
+            start = time.perf_counter()
+            result = optimize_thresholds(test_labels, test_probs, metric="accuracy")
+            elapsed = time.perf_counter() - start
+            assert elapsed < 1.0, f"{case_name} took {elapsed:.4f}s"
+            assert (
+                np.nextafter(0.0, -np.inf)
+                <= result.threshold
+                <= np.nextafter(1.0, np.inf)
+            )
 
     @given(matched_labels_and_probabilities(min_size=100, max_size=500))
     @settings(max_examples=5, deadline=20000)
@@ -1108,13 +782,15 @@ class TestPerformanceProperties:
 
         # Time both comparison operators
         start_time = time.time()
-        threshold_gt = optimize_thresholds(labels, probabilities, "f1", comparison=">")
+        threshold_gt = optimize_thresholds(
+            labels, probabilities, metric="f1", comparison=">"
+        ).threshold
         time_gt = time.time() - start_time
 
         start_time = time.time()
         threshold_gte = optimize_thresholds(
-            labels, probabilities, "f1", comparison=">="
-        )
+            labels, probabilities, metric="f1", comparison=">="
+        ).threshold
         time_gte = time.time() - start_time
 
         # Both should be reasonably fast
@@ -1127,5 +803,5 @@ class TestPerformanceProperties:
         )
 
         # Results should be valid
-        assert 0 <= threshold_gt <= 1
-        assert 0 <= threshold_gte <= 1
+        assert np.nextafter(0.0, -np.inf) <= threshold_gt <= np.nextafter(1.0, np.inf)
+        assert np.nextafter(0.0, -np.inf) <= threshold_gte <= np.nextafter(1.0, np.inf)
