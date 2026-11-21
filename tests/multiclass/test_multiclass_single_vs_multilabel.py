@@ -290,15 +290,10 @@ class TestMulticlassAccuracySemantics:
         labels, probs = _generate_multiclass_data(n_samples=15, n_classes=3)
 
         # F1 should work with OvR approach
-        try:
-            result_f1 = optimize_thresholds(
-                labels, probs, metric="f1", method="auto", comparison=">"
-            )
-            thresholds_f1 = result_f1.thresholds
-            assert len(thresholds_f1) == probs.shape[1]
-
-        except Exception as e:
-            pytest.skip(f"F1 optimization failed: {e}")
+        result_f1 = optimize_thresholds(
+            labels, probs, metric="f1", method="auto", comparison=">"
+        )
+        assert len(result_f1.thresholds) == probs.shape[1]
 
         # Accuracy should require exclusive approach or raise error
         try:
