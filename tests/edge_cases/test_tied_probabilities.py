@@ -95,7 +95,7 @@ class TestTiedProbabilityHandling:
         np.testing.assert_array_equal(
             result.predict(np.array(scores, dtype=np.float32)), labels
         )
-        with pytest.raises(ValueError, match="outside"):
+        with pytest.raises(ValueError, match="Thresholds must be"):
             compute_metric_at_threshold(
                 labels,
                 scores,
@@ -103,6 +103,30 @@ class TestTiedProbabilityHandling:
                 "accuracy",
                 comparison=comparison,
             )
+
+    @pytest.mark.parametrize("method", ["minimize", "gradient"])
+    @pytest.mark.parametrize("comparison", [">", ">="])
+    @pytest.mark.parametrize("boundary", [0.0, 1.0])
+    def test_numerical_binary_methods_can_rescore_boundary_fit(
+        self, method, comparison, boundary
+    ):
+        from optimal_cutoffs.metrics import compute_metric_at_threshold
+
+        labels = [0, 1, 1, 1, 1]
+        scores = np.full(len(labels), boundary)
+        result = optimize_thresholds(
+            labels, scores, method=method, comparison=comparison
+        )
+        assert (
+            np.nextafter(0.0, -np.inf) <= result.threshold <= np.nextafter(1.0, np.inf)
+        )
+        assert compute_metric_at_threshold(
+            labels, scores, result.threshold, "f1", comparison=comparison
+        ) == pytest.approx(result.score)
+        expected = np.greater_equal if comparison == ">=" else np.greater
+        np.testing.assert_array_equal(
+            result.predict(scores), expected(scores, result.threshold)
+        )
 
     def test_all_identical_probabilities(self):
         """Test optimization when all probabilities are identical."""

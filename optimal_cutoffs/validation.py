@@ -221,22 +221,20 @@ def validate_threshold(
     if not np.all(np.isfinite(arr)):
         raise ValueError("Thresholds must be finite")
 
-    # Check bounds
     if allow_epsilon_outside:
-        if np.any(arr < np.nextafter(0.0, -np.inf)) or np.any(
-            arr > np.nextafter(1.0, np.inf)
-        ):
-            raise ValueError(
-                f"Thresholds far outside valid range: "
-                f"[{arr.min():.6f}, {arr.max():.6f}]"
-            )
+        low, high = np.nextafter(0.0, -np.inf), np.nextafter(1.0, np.inf)
     else:
-        # Strict check for user-provided thresholds
-        if np.any(arr < 0) or np.any(arr > 1):
-            raise ValueError(
-                f"Thresholds must be in [0, 1], got range "
-                f"[{arr.min():.3f}, {arr.max():.3f}]"
-            )
+        low, high = 0.0, 1.0
+    if np.any(arr < low) or np.any(arr > high):
+        allowed = (
+            "[0, 1] or its adjacent endpoint cuts"
+            if allow_epsilon_outside
+            else "[0, 1]"
+        )
+        raise ValueError(
+            f"Thresholds must be in {allowed}, got range "
+            f"[{arr.min():.3g}, {arr.max():.3g}]"
+        )
 
     # Check count
     if n_classes is not None and len(arr) != n_classes:
