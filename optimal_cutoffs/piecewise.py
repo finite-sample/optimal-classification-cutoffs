@@ -94,19 +94,14 @@ def _compute_threshold_midpoint(
     exc = float(p_sorted[k_star])
 
     if inc - exc > tolerance:
-        thr = 0.5 * (inc + exc)
-        # For '>=' we bias a half-ulp downward so equals land in the included side
-        return float(np.nextafter(thr, -np.inf)) if inclusive else thr
+        midpoint = 0.5 * inc + 0.5 * exc
+        if inclusive:
+            midpoint = float(np.nextafter(midpoint, -np.inf))
+        if exc < midpoint < inc:
+            return midpoint
 
-    # Tied (or nearly tied) scores: choose side per operator
-    tied = exc
-    # For '>', place threshold just above tied to exclude equals.
-    # For '>=', place just below tied to include equals.
-    return (
-        float(np.nextafter(tied, np.inf))
-        if not inclusive
-        else float(np.nextafter(tied, -np.inf))
-    )
+    # Adjacent floating-point scores have no representable midpoint.
+    return inc if inclusive else exc
 
 
 def _realized_k(p_sorted: Array, threshold: float, inclusive: bool) -> int:
@@ -202,8 +197,12 @@ def optimal_threshold_sortscan(
     k_star = int(np.argmax(score_vec))
     score_theoretical = float(score_vec[k_star])
 
-    # 5) Convert k* to a concrete threshold with correct > / >= semantics
-    threshold = _compute_threshold_midpoint(p_sorted, k_star, inclusive, tolerance)
+    # A scalar threshold can include either all or none of a tied score group.
+    k_cut = k_star
+    if 0 < k_star < n and p_sorted[k_star - 1] == p_sorted[k_star]:
+        cuts = np.flatnonzero(np.r_[True, p_sorted[:-1] != p_sorted[1:], True])
+        k_cut = int(cuts[np.argmax(score_vec[cuts])])
+    threshold = _compute_threshold_midpoint(p_sorted, k_cut, inclusive, tolerance)
 
     # 6) Evaluate the achieved score at that threshold (handles ties & numerics)
     pred_labels = _predict_from_threshold(p, threshold, inclusive)
@@ -212,52 +211,6 @@ def optimal_threshold_sortscan(
     )
     score_actual = _evaluate_metric_scalar_efficient(metric_fn, tp, tn, fp, fn)
 
-    # 7) If the realized score differs meaningfully (e.g., due to ties), probe a few
-    #    locally optimal alternatives (extremes and one-ULP nudges around the boundary).
-    tie_discrepancy = abs(score_actual - score_theoretical)
-    if tie_discrepancy > max(1e-6, 100 * tolerance):
-        best_thr = threshold
-        best_score = score_actual
-
-        min_s = float(p_sorted[-1])
-        max_s = float(p_sorted[0])
-
-        candidates: list[float] = []
-        if inclusive:
-            # Include all vs exclude all
-            candidates.extend([min_s, float(np.nextafter(max_s, np.inf))])
-        else:
-            candidates.extend([float(np.nextafter(min_s, -np.inf)), max_s])
-
-        if 0 < k_star < n:
-            inc = float(p_sorted[k_star - 1])  # last included by k*
-            exc = float(p_sorted[k_star])  # first excluded by k*
-            candidates.extend(
-                [
-                    float(np.nextafter(inc, -np.inf)),  # just below included
-                    float(np.nextafter(exc, np.inf)),  # just above excluded
-                ]
-            )
-
-        # Evaluate candidates
-        for t in candidates:
-            # If require_proba, clamp only if it does not alter intended decision
-            # boundary;
-            # we accept tiny excursions beyond [0,1] when necessary for semantics.
-            t_eval = t
-            pred_labels_alt = _predict_from_threshold(p, t_eval, inclusive)
-            tp2, tn2, fp2, fn2 = confusion_matrix_from_predictions(
-                y, pred_labels_alt, sample_weight=weights
-            )
-            s2 = _evaluate_metric_scalar_efficient(metric_fn, tp2, tn2, fp2, fn2)
-            if s2 > best_score:
-                best_score = s2
-                best_thr = t_eval
-
-        threshold = best_thr
-        score_actual = best_score
-
-    # 8) Diagnostics and final return
     k_real = _realized_k(p_sorted, threshold, inclusive)
 
     def predict_binary(probs: Array) -> Array:
