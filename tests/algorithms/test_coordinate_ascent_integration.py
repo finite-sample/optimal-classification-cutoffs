@@ -347,3 +347,38 @@ class TestCoordinateAscentPerformance:
             assert len(history) <= 20
             assert len(tau) == C
             assert 0.0 <= best_macro <= 1.0
+
+
+@pytest.mark.parametrize("weights", [None, [3.0, 1.0, 2.0, 1.0]])
+def test_tied_probabilities_return_attained_macro_f1(weights):
+    from itertools import product
+
+    from sklearn.metrics import f1_score
+
+    labels = [0, 2, 1, 1]
+    probs = np.array(
+        [[0.5, 0.25, 0.25], [0.5, 0.25, 0.25], [0.25, 0.25, 0.5], [0.5, 0.25, 0.25]]
+    )
+    initial = f1_score(
+        labels, probs.argmax(axis=1), average="macro", sample_weight=weights
+    )
+    for n_sweeps in (1, 2, 5, 30):
+        fit = optimize_thresholds(
+            labels,
+            probs,
+            method="coord_ascent",
+            max_iter=n_sweeps,
+            sample_weight=weights,
+        )
+        pred = np.argmax(probs - fit.thresholds, axis=1)
+        attained = f1_score(labels, pred, average="macro", sample_weight=weights)
+        assert attained >= initial - 1e-12
+        assert fit.score == pytest.approx(attained)
+        initial = attained
+    # Only two rows of probabilities are distinct. Even an unrestricted
+    # deterministic classifier can make only these nine prediction vectors.
+    best_possible = max(
+        f1_score(labels, [a, a, b, a], average="macro", sample_weight=weights)
+        for a, b in product(range(3), repeat=2)
+    )
+    assert attained == pytest.approx(best_possible)

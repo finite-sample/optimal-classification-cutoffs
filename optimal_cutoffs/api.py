@@ -529,6 +529,23 @@ def _optimize_multiclass(
         )
 
     # Empirical mode
+    if average == Average.MICRO:
+        if method not in {"micro", "sort_scan", "minimize"}:
+            raise ValueError("Micro averaging requires a shared-cutoff method")
+        from .multiclass import optimize_micro_multiclass
+
+        return optimize_micro_multiclass(
+            y_true,
+            y_score,
+            metric=metric,
+            method="auto" if method == "micro" else method,
+            sample_weight=sample_weight,
+            comparison=comparison,
+            tolerance=tolerance,
+            **kwargs,
+        )
+
+    class_average = "weighted" if average == Average.WEIGHTED else "macro"
     match method:
         case "coord_ascent":
             # coord_ascent only supports ">" comparison
@@ -540,19 +557,21 @@ def _optimize_multiclass(
                 y_true,
                 y_score,
                 metric=metric,
+                average=class_average,
                 sample_weight=sample_weight,
                 comparison=comparison,
                 tolerance=tolerance,
                 **kwargs,
             )
 
-        case "independent":
+        case "independent" | "sort_scan" | "minimize":
             from .multiclass import optimize_ovr_independent
 
             return optimize_ovr_independent(
                 y_true,
                 y_score,
                 metric=metric,
+                average=class_average,
                 sample_weight=sample_weight,
                 comparison=comparison,
                 tolerance=tolerance,
@@ -560,48 +579,7 @@ def _optimize_multiclass(
             )
 
         case "micro":
-            if average != Average.MICRO:
-                raise ValueError("The multiclass micro method requires average='micro'")
-            from .multiclass import optimize_micro_multiclass
-
-            return optimize_micro_multiclass(
-                y_true,
-                y_score,
-                metric=metric,
-                sample_weight=sample_weight,
-                comparison=comparison,
-                tolerance=tolerance,
-                **kwargs,
-            )
-
-        case "sort_scan":
-            # For multiclass, sort_scan should route to appropriate OvR method
-            from .multiclass import optimize_ovr_independent
-
-            return optimize_ovr_independent(
-                y_true,
-                y_score,
-                metric=metric,
-                sample_weight=sample_weight,
-                comparison=comparison,
-                tolerance=tolerance,
-                **kwargs,
-            )
-
-        case "minimize":
-            # minimize method for multiclass routes to independent optimization
-            from .multiclass import optimize_ovr_independent
-
-            return optimize_ovr_independent(
-                y_true,
-                y_score,
-                metric=metric,
-                sample_weight=sample_weight,
-                comparison=comparison,
-                tolerance=tolerance,
-                **kwargs,
-            )
-
+            raise ValueError("The multiclass micro method requires average='micro'")
         case _:
             raise ValueError(
                 f"Invalid optimization method: '{method}' is not supported for "
