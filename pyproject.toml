@@ -15,7 +15,7 @@ dependencies = [
     "scikit-learn",
 ]
 authors = [
-    {name = "Gaurav Sood", email = "contact@gsood.com"}
+    {name = "Gaurav Sood"}
 ]
 requires-python = ">=3.12"
 keywords = [
