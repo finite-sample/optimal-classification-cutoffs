@@ -21,7 +21,7 @@ jobs:
     with:
       # requires-python floors at 3.12, so the reusable default of
       # ["3.11", "3.14"] cannot resolve its first leg.
-      python-versions: '["3.12", "3.13", "3.14"]'
+      python-versions: '["3.13", "3.14"]'
       wheel-import: optimal_cutoffs
       # The reusable lint job derives the package directory from the
       # distribution name, so it looks for optimal_classification_cutoffs/ and
