@@ -19,6 +19,7 @@ jobs:
   ci:
     uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
     with:
+      run-lower-bounds: true
       # requires-python floors at 3.12, so the reusable default of
       # ["3.11", "3.14"] cannot resolve its first leg.
       python-versions: '["3.13", "3.14"]'
